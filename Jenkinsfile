@@ -54,8 +54,8 @@ node {
       "PATH=${params.SILVER_BASE}/support/bin/:${env.PATH}",
       "ABLEC_BASE=${ablec_base}",
       "EXTS_BASE=${WORKSPACE}/extensions",
-      "SVFLAGS=-G ${WORKSPACE}/generated"
-      "C_INCLUDE_PATH=/project/melt/Software/include:$C_INCLUDE_PATH"
+      "SVFLAGS=-G ${WORKSPACE}/generated",
+      "C_INCLUDE_PATH=/project/melt/Software/include:$C_INCLUDE_PATH",
       "LIBRARY_PATH=/project/melt/Software/lib:$LIBRARY_PATH"
     ]
 
