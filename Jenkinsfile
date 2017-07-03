@@ -52,11 +52,11 @@ node {
     def ablec_base = (params.ABLEC_BASE == 'ableC') ? "${WORKSPACE}/${params.ABLEC_BASE}" : params.ABLEC_BASE
     def env = [
       "PATH=${params.SILVER_BASE}/support/bin/:${env.PATH}",
+      "C_INCLUDE_PATH=/project/melt/Software/include:${env.C_INCLUDE_PATH}",
+      "LIBRARY_PATH=/project/melt/Software/lib:${env.LIBRARY_PATH}",
       "ABLEC_BASE=${ablec_base}",
       "EXTS_BASE=${WORKSPACE}/extensions",
-      "SVFLAGS=-G ${WORKSPACE}/generated",
-      "C_INCLUDE_PATH=/project/melt/Software/include:$C_INCLUDE_PATH",
-      "LIBRARY_PATH=/project/melt/Software/lib:$LIBRARY_PATH"
+      "SVFLAGS=-G ${WORKSPACE}/generated"
     ]
 
     /* stages are pretty much just labels about what's going on */
