@@ -71,7 +71,12 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
 
   local fwrd::Expr =
     subExpr(
-      [typedefSubstitution("__closure_type__", directTypeExpr(closureType(nilQualifier(), params.typereps, res.typerep))),
+      [typedefSubstitution(
+         "__closure_type__",
+         closureTypeExpr(
+           nilQualifier(),
+           argTypesToParameters(params.typereps),
+           typeName(directTypeExpr(res.typerep), baseTypeExpr()))),
        stmtSubstitution("__env_copy__", captured.envCopyInTrans)],
       parseExpr(s"""
 ({proto_typedef __closure_type__;
