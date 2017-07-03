@@ -10,9 +10,6 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 
 import edu:umn:cs:melt:exts:ableC:closure;
 
--- Spurious import, to trigger the tests on build.
-import edu:umn:cs:melt:exts:ableC:closure:mda_test;
-
 marking terminal Lambda_t 'lambda' lexer classes {Ckeyword};
 
 concrete productions top::PostfixExpr_c
