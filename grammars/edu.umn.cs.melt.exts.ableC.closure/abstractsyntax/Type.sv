@@ -9,12 +9,29 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
   
   res.env = addEnv(params.defs, top.env);
   
+  local structName::String = closureStructName(params.typereps, res.typerep);
+  local closureStructDecl::Decl = parseDecl(s"""
+struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:closure:${structName}"),
+                      module("edu:umn:cs:melt:exts:ableC:closure:closure"))) ${structName} {
+  const char *_fn_name; // For debugging
+  void *_env; // Pointer to generated struct containing env
+  __res_type__ (*_fn)(void *env, __params__); // First param is above env struct pointer
+};
+""");
+  
   forwards to 
     if !null(params.errors) || !null(res.errors)
     then errorTypeExpr(params.errors ++ res.errors)
     else
       injectGlobalDeclsTypeExpr(
-        consDecl(mkClosureTypeDecl(params, res), nilDecl()),
+        consDecl(
+          maybeTagDecl(
+           structName,
+            subDecl(
+              [parametersSubstitution("__params__", params),
+               typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty))],
+              closureStructDecl)),
+          nilDecl()),
         directTypeExpr(closureType(q, params.typereps, res.typerep)));
 }
 
@@ -43,28 +60,6 @@ top::Type ::= q::Qualifiers params::[Type] res::Type
         structSEU(),
         structName,
         s"edu:umn:cs:melt:exts:ableC:closure:${structName}"));
-}
-
-function mkClosureTypeDecl
-Decl ::= params::Parameters res::TypeName
-{
-  local structName::String = closureStructName(params.typereps, res.typerep);
-  local closureStructDecl::Decl = parseDecl(s"""
-struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:closure:${structName}"),
-                      module("edu:umn:cs:melt:exts:ableC:closure:closure"))) ${structName} {
-  const char *_fn_name; // For debugging
-  void *_env; // Pointer to generated struct containing env
-  __res_type__ (*_fn)(void *env, __params__); // First param is above env struct pointer
-};
-""");
-
-  return
-    maybeTagDecl(
-      structName,
-      subDecl(
-        [parametersSubstitution("__params__", params),
-         typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty))],
-        closureStructDecl));
 }
 
 function closureStructName
@@ -107,7 +102,7 @@ function closureParamTypes
     end;
 }
 
--- Find the result type of a vector type in a non-interfering way
+-- Find the result type of a closure type in a non-interfering way
 function closureResultType
 Type ::= t::Type env::Decorated Env
 {
