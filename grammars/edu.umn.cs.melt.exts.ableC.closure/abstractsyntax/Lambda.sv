@@ -28,7 +28,7 @@ top::Expr ::= captured::CaptureList params::Parameters res::Expr
   
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
-  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, removeDuplicateNames(res.freeVariables));
+  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, res.freeVariables));
   captured.globalEnv = addEnv(params.defs, globalEnv(top.env));
   
   res.env = addEnv(params.defs, openScope(top.env));
@@ -193,7 +193,7 @@ top::CaptureList ::=
 {
   top.pp = pp"free_variables";
   
-  local contents::[Name] = removeDuplicateNames(top.freeVariablesIn);
+  local contents::[Name] = nubBy(nameEq, top.freeVariablesIn);
   
   forwards to foldr(consCaptureList, nilCaptureList(), contents);
 }
