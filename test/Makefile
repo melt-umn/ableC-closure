@@ -32,6 +32,8 @@ TESTS=$(XC_FILES:.xc=.test)
 XC_INCLUDE_DIRS=$(wildcard $(EXTS_BASE)/*/include)
 # Flags passed to ableC including the appropriate directories
 override XCFLAGS+=$(addprefix -I,$(XC_INCLUDE_DIRS))
+# Flags passed to Java when invoking ableC
+override JAVAFLAGS+=-Xss6M
 
 # Flags passed to the C compiler, e.g. to enable various compiler extensions
 override CFLAGS+=
@@ -62,14 +64,14 @@ $(ABLEC_JAR): $(GRAMMAR_SOURCES)
 	silver -o $(ABLEC_JAR) $(SVFLAGS) $(ARTIFACT)
 
 %.c: %.xc $(ABLEC_JAR)
-	java -jar $(ABLEC_JAR) $< $(XCFLAGS)
+	java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)
 
 %.out: %.o $(SRC_SOURCES) | libs
 	$(CC) $(LDFLAGS) $< $(LOADLIBES) $(LDLIBS) -o $@
 
 translate_error/%.test: translate_error/%.xc $(ABLEC_JAR)
 	@echo "java -jar $(ABLEC_JAR) $< $(XCFLAGS)"
-	@if java -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo "Failed to error"; exit 1; fi
+	@if java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS); then echo "Failed to error"; exit 1; fi
 	touch $@
 
 runtime_error/%.test: runtime_error/%.out
