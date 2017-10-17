@@ -27,7 +27,7 @@ struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:closure:${structName}"),
         consDecl(
           maybeTagDecl(
            structName,
-            subDecl(
+            substDecl(
               [parametersSubstitution("__params__", params),
                typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty))],
               closureStructDecl)),
@@ -97,7 +97,7 @@ function closureParamTypes
     case refIds, valueItems, fnPtrType of
       [], _, _ -> []
     | _, [], _ -> []
-    | _, _, pointerType(_, functionType(_, protoFunctionType(params, _))) -> tail(params)
+    | _, _, pointerType(_, functionType(_, protoFunctionType(params, _), _)) -> tail(params)
     | _, _, _ -> []
     end;
 }
@@ -119,7 +119,7 @@ Type ::= t::Type env::Decorated Env
     case refIds, valueItems, fnPtrType of
       [], _, _ -> errorType()
     | _, [], _ -> errorType()
-    | _, _, pointerType(_, functionType(res, _)) -> res
+    | _, _, pointerType(_, functionType(res, _, _)) -> res
     | _, _, _ -> errorType()
     end;
 }

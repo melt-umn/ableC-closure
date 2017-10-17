@@ -32,7 +32,7 @@ top::Expr ::= fn::Expr args::Exprs
   args.expectedTypes = closureParamTypes(fn.typerep, top.env);
   
   local fwrd::Expr =
-    subExpr(
+    substExpr(
       [typedefSubstitution("__closure_type__", directTypeExpr(fn.typerep)),
        declRefSubstitution("__fn__", fn),
        exprsSubstitution("__args__", args)],

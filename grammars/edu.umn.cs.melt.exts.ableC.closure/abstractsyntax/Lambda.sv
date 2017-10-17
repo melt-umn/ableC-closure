@@ -3,12 +3,12 @@ grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 imports silver:langutil;
 imports silver:langutil:pp;
 
-imports edu:umn:cs:melt:ableC:abstractsyntax;
+imports edu:umn:cs:melt:ableC:abstractsyntax:host;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction:parsing;
 imports edu:umn:cs:melt:ableC:abstractsyntax:substitution;
 imports edu:umn:cs:melt:ableC:abstractsyntax:env;
-imports edu:umn:cs:melt:ableC:abstractsyntax:overload as ovrld;
+imports edu:umn:cs:melt:ableC:abstractsyntax:overloadable as ovrld;
 --imports edu:umn:cs:melt:ableC:abstractsyntax:debug;
 
 import silver:util:raw:treemap as tm;
@@ -52,7 +52,7 @@ top::Expr ::= captured::CaptureList params::Parameters res::Expr
           location=builtin)));
   
   local funDcl::Decl =
-    subDecl(
+    substDecl(
       [typedefSubstitution("__res_type__", directTypeExpr(res.typerep)),
        parametersSubstitution("__params__", params),
        stmtSubstitution("__env_copy__", captured.envCopyOutTrans),
@@ -70,7 +70,7 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   local globalDecls::Decls = foldDecl([envStructDcl, funDcl]);
 
   local fwrd::Expr =
-    subExpr(
+    substExpr(
       [typedefSubstitution(
          "__closure_type__",
          closureTypeExpr(
@@ -118,8 +118,8 @@ top::CaptureList ::= n::Name rest::CaptureList
   local varType::Type =
     case n.valueItem.typerep of
       arrayType(elem, _, _, _) -> pointerType(nilQualifier(), elem)
-    | functionType(res, sub) ->
-        pointerType(nilQualifier(), noncanonicalType(parenType(functionType(res, sub))))
+    | functionType(res, sub, q) ->
+        pointerType(nilQualifier(), noncanonicalType(parenType(functionType(res, sub, q))))
     | t -> t
     end;
   
@@ -142,14 +142,11 @@ top::CaptureList ::= n::Name rest::CaptureList
       seqStmt(
         rest.envCopyInTrans,
         exprStmt(
-          binaryOpExpr(
+          eqExpr(
             memberExpr(
               declRefExpr(name("_env", location=builtin), location=builtin),
               false,
               n,
-              location=builtin),
-            assignOp(
-              eqOp(location=builtin),
               location=builtin),
             declRefExpr(n, location=builtin),
           location=builtin)));
@@ -161,7 +158,7 @@ top::CaptureList ::= n::Name rest::CaptureList
         declStmt(
           variableDecls(
             [], nilAttribute(),
-            directTypeExpr(addQualifiers([constQualifier()], varType)),
+            directTypeExpr(addQualifiers([constQualifier(location=builtin)], varType)),
             consDeclarator(
               declarator(
                 n,
