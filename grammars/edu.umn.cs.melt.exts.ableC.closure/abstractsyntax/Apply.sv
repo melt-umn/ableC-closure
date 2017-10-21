@@ -1,6 +1,6 @@
 grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
   
-aspect function ovrld:getCallOverload
+aspect function ovrld:getCallOverloadProd
 Maybe<(Expr ::= Expr Exprs Location)> ::= t::Type env::Decorated Env
 {
   overloads <- [pair("edu:umn:cs:melt:exts:ableC:closure:closure", applyExpr(_, _, location=_))];
