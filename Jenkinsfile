@@ -73,29 +73,48 @@ node {
       /* don't check out extension under ableC_Home because doing so would allow
        * the Makefiles to find ableC with the included search paths, but we want
        * to explicitly specify the path to ableC according to ABLEC_BASE */
-    checkout([ $class: 'GitSCM',
-               branches: scm.branches,
-               doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
-               extensions: [
-                 [ $class: 'RelativeTargetDirectory',
-                   relativeTargetDir: "extensions/${extension_name}"],
-                 [ $class: 'CleanCheckout']
-                 ],
-               submoduleCfg: scm.submoduleCfg,
-               userRemoteConfigs: scm.userRemoteConfigs
-             ])
-
       checkout([ $class: 'GitSCM',
-                 branches: [[name: '*/develop']],
+                 branches: scm.branches,
+                 doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
                  extensions: [
                    [ $class: 'RelativeTargetDirectory',
-                     relativeTargetDir: 'ableC'],
+                     relativeTargetDir: "extensions/${extension_name}"],
                    [ $class: 'CleanCheckout']
-                 ],
-                 userRemoteConfigs: [
-                   [url: 'https://github.com/melt-umn/ableC.git']
-                 ]
+                   ],
+                 submoduleCfg: scm.submoduleCfg,
+                 userRemoteConfigs: scm.userRemoteConfigs
                ])
+
+      /* Try checking out an ableC branch with the same name, if that fails then
+       * check out develop */
+      try {
+        checkout([ $class: 'GitSCM',
+                   branches: scm.branches,
+                   doGenerateSubmoduleConfigurations: false,
+                   extensions: [
+                     [ $class: 'RelativeTargetDirectory',
+                       relativeTargetDir: 'ableC'],
+                     [ $class: 'CleanCheckout']
+                   ],
+                   userRemoteConfigs: [
+                     [url: 'https://github.com/melt-umn/ableC.git']
+                   ]
+                 ])
+      }
+      catch (e) {
+        checkout([ $class: 'GitSCM',
+                   branches: [[name: '*/develop']],
+                   doGenerateSubmoduleConfigurations: false,
+                   extensions: [
+                     [ $class: 'RelativeTargetDirectory',
+                       relativeTargetDir: 'ableC'],
+                     [ $class: 'CleanCheckout']
+                   ],
+                   userRemoteConfigs: [
+                     [url: 'https://github.com/melt-umn/ableC.git']
+                   ]
+                 ])
+      }
 
       /* env.PATH is the master's path, not the executor's */
       withEnv(env) {
