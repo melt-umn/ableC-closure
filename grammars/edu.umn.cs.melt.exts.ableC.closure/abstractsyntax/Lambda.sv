@@ -31,7 +31,7 @@ top::Expr ::= captured::CaptureList params::Parameters res::Expr
   captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, res.freeVariables));
   captured.globalEnv = addEnv(params.defs, globalEnv(top.env));
   
-  res.env = addEnv(params.defs, openEnvScope(top.env));
+  res.env = addEnv(params.defs, openScopeEnv(top.env));
   res.returnType = just(res.typerep);
   
   local id::String = toString(genInt()); 
