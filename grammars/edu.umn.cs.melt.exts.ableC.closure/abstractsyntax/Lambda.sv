@@ -16,10 +16,10 @@ import silver:util:raw:treemap as tm;
 global builtin::Location = builtinLoc("closure");
 
 abstract production lambdaExpr
-top::Expr ::= captured::CaptureList params::Parameters res::Expr
+top::Expr ::= captured::MaybeCaptureList params::Parameters res::Expr
 {
   propagate substituted;
-  top.pp = pp"lambda {${captured.pp}} (${ppImplode(text(", "), params.pps)}) . (${res.pp})";
+  top.pp = pp"lambda ${captured.pp} (${ppImplode(text(", "), params.pps)}) . (${res.pp})";
 
   local localErrors::[Message] =
     (if !null(lookupValue("GC_malloc", top.env)) then []
@@ -97,15 +97,43 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
 }
 
-nonterminal CaptureList with env, pp, errors;
+synthesized attribute envStructTrans::StructItemList;
+synthesized attribute envCopyInTrans::Stmt;  -- Copys env vars into _env
+synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
-synthesized attribute envStructTrans::StructItemList occurs on CaptureList;
-synthesized attribute envCopyInTrans::Stmt occurs on CaptureList;  -- Copys env vars into _env
-synthesized attribute envCopyOutTrans::Stmt occurs on CaptureList; -- Copys _env out to vars
+autocopy attribute globalEnv::Decorated Env;
+autocopy attribute structNameIn::String;
+autocopy attribute freeVariablesIn::[Name];
 
-autocopy attribute globalEnv::Decorated Env occurs on CaptureList;
-autocopy attribute freeVariablesIn::[Name] occurs on CaptureList;
-autocopy attribute structNameIn::String occurs on CaptureList;
+nonterminal MaybeCaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envCopyInTrans, envCopyOutTrans;
+
+abstract production justCaptureList
+top::MaybeCaptureList ::= cl::CaptureList
+{
+  top.pp = pp"[${cl.pp}]";
+  top.errors := cl.errors;
+  top.envStructTrans = cl.envStructTrans;
+  top.envCopyInTrans = cl.envCopyInTrans;
+  top.envCopyOutTrans = cl.envCopyOutTrans;
+}
+
+abstract production nothingCaptureList
+top::MaybeCaptureList ::=
+{
+  top.pp = pp"";
+  top.errors := envContents.errors; -- Should be []
+  top.envStructTrans = envContents.envStructTrans;
+  top.envCopyInTrans = envContents.envCopyInTrans;
+  top.envCopyOutTrans = envContents.envCopyOutTrans;
+  
+  local envContents::CaptureList =
+    foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
+  envContents.env = top.env;
+  envContents.globalEnv = top.globalEnv;
+  envContents.structNameIn = top.structNameIn;
+}
+
+nonterminal CaptureList with env, globalEnv, structNameIn, pp, errors, envStructTrans, envCopyInTrans, envCopyOutTrans;
 
 abstract production consCaptureList
 top::CaptureList ::= n::Name rest::CaptureList
@@ -183,14 +211,4 @@ top::CaptureList ::=
   top.envStructTrans = nilStructItem();
   top.envCopyInTrans = nullStmt();
   top.envCopyOutTrans = nullStmt();
-}
-
-abstract production exprFreeVariables
-top::CaptureList ::=
-{
-  top.pp = pp"free_variables";
-  
-  local contents::[Name] = nubBy(nameEq, top.freeVariablesIn);
-  
-  forwards to foldr(consCaptureList, nilCaptureList(), contents);
 }

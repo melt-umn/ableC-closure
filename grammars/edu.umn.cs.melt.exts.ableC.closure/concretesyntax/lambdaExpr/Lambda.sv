@@ -19,24 +19,22 @@ concrete productions top::PostfixExpr_c
 nonterminal Lambda_c with ast<Expr>, location;
 
 concrete productions top::Lambda_c
-| '{' captured::CaptureList_c '}' '(' params::ParameterList_c ')'
+| captured::MaybeCaptureList_c '(' params::ParameterList_c ')'
   '->' '(' res::Expr_c ')'
     { top.ast = lambdaExpr(captured.ast, foldParameterDecl(params.ast), res.ast,
                   location=top.location); }
-
-| '(' params::ParameterList_c ')' '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(exprFreeVariables(), foldParameterDecl(params.ast), res.ast,
-                  location=top.location); 
-    }
-| '{' captured::CaptureList_c '}' '(' ')'
+| captured::MaybeCaptureList_c '(' ')'
   '->' '(' res::Expr_c ')'
     { top.ast = lambdaExpr(captured.ast, nilParameters(), res.ast,
                   location=top.location); }
 
-| '(' ')' '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(exprFreeVariables(), nilParameters(), res.ast,
-                  location=top.location); 
-    }
+nonterminal MaybeCaptureList_c with ast<MaybeCaptureList>, location;
+
+concrete productions top::MaybeCaptureList_c
+| '[' cl::CaptureList_c ']'
+    { top.ast = justCaptureList(cl.ast); }
+| 
+    { top.ast = nothingCaptureList(); }
 
 nonterminal CaptureList_c with ast<CaptureList>;
 
