@@ -24,8 +24,6 @@ top::Expr ::= fn::Expr args::Exprs
      else [err(fn.location, s"Cannot apply non-closure (got ${showType(fn.typerep)})")]) ++
     fn.errors ++ args.errors;
   
-  top.typerep = closureResultType(fn.typerep, top.env);
-  
   args.argumentPosition = 1;
   args.callExpr = fn;
   args.callVariadic = false;
@@ -33,7 +31,12 @@ top::Expr ::= fn::Expr args::Exprs
   
   local fwrd::Expr =
     substExpr(
-      [typedefSubstitution("__closure_type__", directTypeExpr(fn.typerep)),
+      [typedefSubstitution(
+         "__closure_type__",
+         closureTypeExpr(
+           nilQualifier(),
+           argTypesToParameters(args.typereps),
+           typeName(directTypeExpr(closureResultType(fn.typerep, top.env)), baseTypeExpr()))),
        declRefSubstitution("__fn__", fn),
        exprsSubstitution("__args__", args)],
       applyExprFwrd);
