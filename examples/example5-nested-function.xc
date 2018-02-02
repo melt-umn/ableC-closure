@@ -9,7 +9,10 @@ int main() {
   
   int *total_addr = &total;
 
-  closure<(int) -> int> fn = lambda (int x) -> (({inc(x); *total_addr;}));
+  closure<(int) -> int> fn = lambda (int x) -> (int) {
+    inc(x);
+    return *total_addr;
+  };
   printf("%d\n", fn(1));
   printf("%d\n", fn(2));
   printf("%d\n", fn(3));

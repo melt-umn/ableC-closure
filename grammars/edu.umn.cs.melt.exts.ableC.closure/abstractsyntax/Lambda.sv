@@ -19,20 +19,47 @@ abstract production lambdaExpr
 top::Expr ::= captured::MaybeCaptureList params::Parameters res::Expr
 {
   propagate substituted;
-  top.pp = pp"lambda ${captured.pp} (${ppImplode(text(", "), params.pps)}) . (${res.pp})";
-
+  top.pp = pp"lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
+  
   local localErrors::[Message] =
     (if !null(lookupValue("GC_malloc", top.env)) then []
      else [err(top.location, "Closures require <gc.h> to be included.")]) ++
     captured.errors ++ params.errors ++ res.errors;
   
+  res.env = openScopeEnv(addEnv(params.defs, params.env));
+  res.returnType = just(res.typerep);
+  
+  local fwrd::Expr =
+    lambdaStmtExpr(
+      captured, params,
+      typeName(directTypeExpr(res.typerep), baseTypeExpr()),
+      returnStmt(justExpr(res)),
+      location=top.location);
+  
+  forwards to mkErrorCheck(localErrors, fwrd);
+}
+
+abstract production lambdaStmtExpr
+top::Expr ::= captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt
+{
+  propagate substituted;
+  top.pp = pp"lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  
+  local localErrors::[Message] =
+    (if !null(lookupValue("GC_malloc", top.env)) then []
+     else [err(top.location, "Closures require <gc.h> to be included.")]) ++
+    captured.errors ++ params.errors ++ res.errors ++ body.errors;
+  
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
-  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, res.freeVariables));
-  captured.globalEnv = addEnv(params.defs, globalEnv(top.env));
+  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
+  captured.globalEnv = addEnv(params.defs ++ res.defs, globalEnv(top.env));
   
-  res.env = addEnv(params.defs, openScopeEnv(top.env));
-  res.returnType = just(res.typerep);
+  res.env = top.env;
+  res.returnType = nothing();
+  params.env = addEnv(res.defs, res.env);
+  body.env = openScopeEnv(addEnv(params.defs, params.env));
+  body.returnType = just(res.typerep);
   
   local id::String = toString(genInt()); 
   local envStructName::String = s"_lambda_env_${id}_s";
@@ -53,22 +80,22 @@ top::Expr ::= captured::MaybeCaptureList params::Parameters res::Expr
   
   local funDcl::Decl =
     substDecl(
-      [typedefSubstitution("__res_type__", directTypeExpr(res.typerep)),
+      [typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty)),
        parametersSubstitution("__params__", params),
        stmtSubstitution("__env_copy__", captured.envCopyOutTrans),
-       declRefSubstitution("__result__", res)],
+       stmtSubstitution("__body__", body)],
       decls(
         parseDecls(s"""
 proto_typedef __res_type__, __params__;
 static __res_type__ ${funName}(void *_env_ptr, __params__) {
   struct ${envStructName} _env = *(struct ${envStructName}*)_env_ptr;
   __env_copy__;
-  return __result__;
+  __body__;
 }
 """)));
   
   local globalDecls::Decls = foldDecl([envStructDcl, funDcl]);
-
+  
   local fwrd::Expr =
     substExpr(
       [typedefSubstitution(
@@ -140,7 +167,12 @@ top::CaptureList ::= n::Name rest::CaptureList
 {
   top.pp = pp"${n.pp}, ${rest.pp}";
   
-  top.errors := n.valueLookupCheck ++ rest.errors;
+  top.errors := rest.errors;
+  top.errors <- n.valueLookupCheck;
+  top.errors <-
+    if n.valueItem.isItemValue
+    then []
+    else [err(n.location, "'" ++ n.name ++ "' does not refer to a value.")];
 
   -- Strip qualifiers and convert arrays and functions to pointers
   local varType::Type =

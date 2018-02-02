@@ -19,14 +19,14 @@ concrete productions top::PostfixExpr_c
 nonterminal Lambda_c with ast<Expr>, location;
 
 concrete productions top::Lambda_c
-| captured::MaybeCaptureList_c '(' params::ParameterList_c ')'
-  '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(captured.ast, foldParameterDecl(params.ast), res.ast,
-                  location=top.location); }
-| captured::MaybeCaptureList_c '(' ')'
-  '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(captured.ast, nilParameters(), res.ast,
-                  location=top.location); }
+| captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::Expr_c ')'
+    { top.ast = lambdaExpr(captured.ast, foldParameterDecl(params.ast), res.ast, location=top.location); }
+| captured::MaybeCaptureList_c '(' ')' '->' '(' res::Expr_c ')'
+    { top.ast = lambdaExpr(captured.ast, nilParameters(), res.ast, location=top.location); }
+| captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::TypeName_c ')' '{' body::BlockItemList_c '}'
+    { top.ast = lambdaStmtExpr(captured.ast, foldParameterDecl(params.ast), res.ast, foldStmt(body.ast), location=top.location); }
+| captured::MaybeCaptureList_c '(' ')' '->' '(' res::TypeName_c ')' '{' body::BlockItemList_c '}'
+    { top.ast = lambdaStmtExpr(captured.ast, nilParameters(), res.ast, foldStmt(body.ast), location=top.location); }
 
 nonterminal MaybeCaptureList_c with ast<MaybeCaptureList>, location;
 
