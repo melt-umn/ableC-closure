@@ -16,15 +16,14 @@ import silver:util:raw:treemap as tm;
 global builtin::Location = builtinLoc("closure");
 
 abstract production lambdaExpr
-top::Expr ::= captured::MaybeCaptureList params::Parameters res::Expr
+top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters res::Expr
 {
   propagate substituted;
-  top.pp = pp"lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"(${e.pp}) " | _ -> pp"" end}${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   local localErrors::[Message] =
-    (if !null(lookupValue("GC_malloc", top.env)) then []
-     else [err(top.location, "Closures require <gc.h> to be included.")]) ++
-    captured.errors ++ params.errors ++ res.errors;
+    checkAllocatorErrors(top.location, allocator) ++
+    allocator.errors ++ captured.errors ++ params.errors ++ res.errors;
   
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
@@ -34,7 +33,7 @@ top::Expr ::= captured::MaybeCaptureList params::Parameters res::Expr
   
   local fwrd::Expr =
     lambdaStmtExpr(
-      captured, params,
+      allocator, captured, params,
       typeName(directTypeExpr(res.typerep), baseTypeExpr()),
       returnStmt(justExpr(res)),
       location=top.location);
@@ -43,15 +42,14 @@ top::Expr ::= captured::MaybeCaptureList params::Parameters res::Expr
 }
 
 abstract production lambdaStmtExpr
-top::Expr ::= captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt
+top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt
 {
   propagate substituted;
-  top.pp = pp"lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"(${e.pp}) " | _ -> pp"" end}${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
   
   local localErrors::[Message] =
-    (if !null(lookupValue("GC_malloc", top.env)) then []
-     else [err(top.location, "Closures require <gc.h> to be included.")]) ++
-    captured.errors ++ params.errors ++ res.errors ++ body.errors;
+    checkAllocatorErrors(top.location, allocator) ++
+    allocator.errors ++ captured.errors ++ params.errors ++ res.errors ++ body.errors;
   
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
@@ -101,7 +99,13 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   
   local fwrd::Expr =
     substExpr(
-      [typedefSubstitution(
+      [declRefSubstitution(
+         "__allocator__",
+         case allocator of
+           justExpr(e) -> e
+         | nothingExpr() -> declRefExpr(name("GC_malloc", location=builtin), location=builtin)
+         end),
+       typedefSubstitution(
          "__closure_type__",
          closureTypeExpr(
            nilQualifier(),
@@ -113,7 +117,7 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   struct ${envStructName} _env;
   __env_copy__;
   
-  struct ${envStructName} *_env_ptr = GC_malloc(sizeof(struct ${envStructName}));
+  struct ${envStructName} *_env_ptr = __allocator__(sizeof(struct ${envStructName}));
   *_env_ptr = _env;
   
   __closure_type__ _result;
@@ -125,6 +129,28 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   
   forwards to
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
+}
+
+function checkAllocatorErrors
+[Message] ::= loc::Location allocator::Decorated MaybeExpr
+{
+  local expectedType::Type =
+    functionType(
+      pointerType(
+        nilQualifier(),
+        builtinType(nilQualifier(), voidType())),
+      protoFunctionType([builtinType(nilQualifier(), unsignedType(longType()))], false),
+      nilQualifier());
+    
+  return
+    case allocator of
+      justExpr(e) ->
+      if compatibleTypes(expectedType, e.typerep, true, false) then []
+      else [err(e.location, s"Allocator must have type void*(unsigned long) (got ${showType(e.typerep)})")]
+    | nothingExpr() ->
+      if !null(lookupValue("GC_malloc", allocator.env)) then []
+      else [err(loc, "Lambdas lacking an explicit allocator require <gc.h> to be included.")]
+    end;
 }
 
 synthesized attribute envStructTrans::StructItemList;
