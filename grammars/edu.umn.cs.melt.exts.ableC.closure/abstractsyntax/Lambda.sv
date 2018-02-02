@@ -26,6 +26,9 @@ top::Expr ::= captured::MaybeCaptureList params::Parameters res::Expr
      else [err(top.location, "Closures require <gc.h> to be included.")]) ++
     captured.errors ++ params.errors ++ res.errors;
   
+  local paramNames::[Name] =
+    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
+  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, res.freeVariables));
   res.env = openScopeEnv(addEnv(params.defs, params.env));
   res.returnType = just(res.typerep);
   

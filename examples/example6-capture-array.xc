@@ -9,6 +9,7 @@ int main (int argc, char **argv) {
     int temp = data[1];
     data[1] += data[0];
     data[0] = temp;
+    return data[0];
   };
   
   printf("%d\n", fib());
