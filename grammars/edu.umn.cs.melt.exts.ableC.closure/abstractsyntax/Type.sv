@@ -10,8 +10,9 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
   res.env = addEnv(params.defs, top.env);
   
   local structName::String = closureStructName(params.typereps, res.typerep);
+  local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
   local closureStructDecl::Decl = parseDecl(s"""
-struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:closure:${structName}"),
+struct __attribute__((refId("${structRefId}"),
                       module("edu:umn:cs:melt:exts:ableC:closure:closure"))) ${structName} {
   const char *_fn_name; // For debugging
   void *_env; // Pointer to generated struct containing env
@@ -25,8 +26,8 @@ struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:closure:${structName}"),
     else
       injectGlobalDeclsTypeExpr(
         consDecl(
-          maybeTagDecl(
-           structName,
+          maybeRefIdDecl(
+            structRefId,
             substDecl(
               [parametersSubstitution("__params__", params),
                typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty))],
@@ -49,17 +50,13 @@ top::Type ::= q::Qualifiers params::[Type] res::Type
           map((.rpp), params)))}) -> ${res.lpp}${res.rpp}>";
   top.rpp = notext();
   
-  top.withTypeQualifiers = closureType(foldQualifier(top.addedTypeQualifiers ++ q.qualifiers), params, res);
+  top.withTypeQualifiers =
+    closureType(foldQualifier(top.addedTypeQualifiers ++ q.qualifiers), params, res);
   
   local structName::String = closureStructName(params, res);
+  local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
   
-  forwards to
-    tagType(
-      q,
-      refIdTagType(
-        structSEU(),
-        structName,
-        s"edu:umn:cs:melt:exts:ableC:closure:${structName}"));
+  forwards to tagType(q, refIdTagType(structSEU(), structName, structRefId));
 }
 
 function closureStructName
