@@ -1,5 +1,14 @@
 grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 
+{-
+ - closureTypeExpr translates to a global struct declaration (if needed) and a reference to this
+ - struct.  closureType, when transformed back into a BaseTypeExpr, is simply a reference to this
+ - struct.  An invariant is that for any closureType that appears anywhere, a corresponding
+ - closureTypeExpr must have existed somewhere that produced this type in the first place, and thus
+ - provided the relevant struct definition.  Note that this closureTypeExpr may be part of the
+ - forward for something, as in the case of lambdaExpr.
+ -}
+
 abstract production closureTypeExpr
 top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
 {
