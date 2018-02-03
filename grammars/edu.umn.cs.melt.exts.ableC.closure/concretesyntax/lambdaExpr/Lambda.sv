@@ -12,31 +12,33 @@ import edu:umn:cs:melt:exts:ableC:closure;
 
 marking terminal Lambda_t 'lambda' lexer classes {Ckeyword};
 
+terminal Allocate_t 'allocate';
+
 concrete productions top::PostfixExpr_c
-| 'lambda' body::Lambda_c
-    { top.ast = body.ast; }
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::Expr_c ')'
+    { top.ast = lambdaExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, location=top.location); }
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' '(' res::Expr_c ')'
+    { top.ast = lambdaExpr(allocator.ast, captured.ast, nilParameters(), res.ast, location=top.location); }
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::TypeName_c ')' '{' body::BlockItemList_c '}'
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, foldStmt(body.ast), location=top.location); }
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' '(' res::TypeName_c ')' '{' body::BlockItemList_c '}'
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, foldStmt(body.ast), location=top.location); }
 
-nonterminal Lambda_c with ast<Expr>, location;
+nonterminal MaybeAllocator_c with ast<MaybeExpr>, location;
 
-concrete productions top::Lambda_c
-| '{' captured::CaptureList_c '}' '(' params::ParameterList_c ')'
-  '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(captured.ast, foldParameterDecl(params.ast), res.ast,
-                  location=top.location); }
+concrete productions top::MaybeAllocator_c
+| 'allocate' '(' e::Expr_c ')'
+    { top.ast = justExpr(e.ast); }
+| 
+    { top.ast = nothingExpr(); }
 
-| '(' params::ParameterList_c ')' '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(exprFreeVariables(), foldParameterDecl(params.ast), res.ast,
-                  location=top.location); 
-    }
-| '{' captured::CaptureList_c '}' '(' ')'
-  '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(captured.ast, nilParameters(), res.ast,
-                  location=top.location); }
+nonterminal MaybeCaptureList_c with ast<MaybeCaptureList>;
 
-| '(' ')' '->' '(' res::Expr_c ')'
-    { top.ast = lambdaExpr(exprFreeVariables(), nilParameters(), res.ast,
-                  location=top.location); 
-    }
+concrete productions top::MaybeCaptureList_c
+| '[' cl::CaptureList_c ']'
+    { top.ast = justCaptureList(cl.ast); }
+| 
+    { top.ast = nothingCaptureList(); }
 
 nonterminal CaptureList_c with ast<CaptureList>;
 

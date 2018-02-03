@@ -7,7 +7,10 @@ int f(int a) {
 }
 
 int main (int argc, char **argv) {
-  closure<(int) -> int> fun = lambda (int x) -> (({printf("%d\n", x); f(x);}));
+  closure<(int) -> int> fun = lambda (int x) -> (int) {
+    printf("%d\n", x);
+    return f(x);
+  };
 
   int a = fun(1);
 

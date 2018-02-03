@@ -16,23 +16,51 @@ import silver:util:raw:treemap as tm;
 global builtin::Location = builtinLoc("closure");
 
 abstract production lambdaExpr
-top::Expr ::= captured::CaptureList params::Parameters res::Expr
+top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters res::Expr
 {
   propagate substituted;
-  top.pp = pp"lambda {${captured.pp}} (${ppImplode(text(", "), params.pps)}) . (${res.pp})";
-
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"(${e.pp}) " | _ -> pp"" end}${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
+  
   local localErrors::[Message] =
-    (if !null(lookupValue("GC_malloc", top.env)) then []
-     else [err(top.location, "Closures require <gc.h> to be included.")]) ++
-    captured.errors ++ params.errors ++ res.errors;
+    checkAllocatorErrors(top.location, allocator) ++
+    allocator.errors ++ captured.errors ++ params.errors ++ res.errors;
   
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
   captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, res.freeVariables));
-  captured.globalEnv = addEnv(params.defs, globalEnv(top.env));
-  
-  res.env = addEnv(params.defs, openScopeEnv(top.env));
+  res.env = openScopeEnv(addEnv(params.defs, params.env));
   res.returnType = just(res.typerep);
+  
+  local fwrd::Expr =
+    lambdaStmtExpr(
+      allocator, captured, params,
+      typeName(directTypeExpr(res.typerep), baseTypeExpr()),
+      returnStmt(justExpr(res)),
+      location=top.location);
+  
+  forwards to mkErrorCheck(localErrors, fwrd);
+}
+
+abstract production lambdaStmtExpr
+top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt
+{
+  propagate substituted;
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"(${e.pp}) " | _ -> pp"" end}${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  
+  local localErrors::[Message] =
+    checkAllocatorErrors(top.location, allocator) ++
+    allocator.errors ++ captured.errors ++ params.errors ++ res.errors ++ body.errors;
+  
+  local paramNames::[Name] =
+    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
+  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
+  captured.globalEnv = addEnv(params.defs ++ res.defs, globalEnv(top.env));
+  
+  res.env = top.env;
+  res.returnType = nothing();
+  params.env = addEnv(res.defs, res.env);
+  body.env = openScopeEnv(addEnv(params.defs, params.env));
+  body.returnType = just(res.typerep);
   
   local id::String = toString(genInt()); 
   local envStructName::String = s"_lambda_env_${id}_s";
@@ -53,25 +81,31 @@ top::Expr ::= captured::CaptureList params::Parameters res::Expr
   
   local funDcl::Decl =
     substDecl(
-      [typedefSubstitution("__res_type__", directTypeExpr(res.typerep)),
+      [typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty)),
        parametersSubstitution("__params__", params),
        stmtSubstitution("__env_copy__", captured.envCopyOutTrans),
-       declRefSubstitution("__result__", res)],
+       stmtSubstitution("__body__", body)],
       decls(
         parseDecls(s"""
 proto_typedef __res_type__, __params__;
 static __res_type__ ${funName}(void *_env_ptr, __params__) {
   struct ${envStructName} _env = *(struct ${envStructName}*)_env_ptr;
   __env_copy__;
-  return __result__;
+  __body__;
 }
 """)));
   
   local globalDecls::Decls = foldDecl([envStructDcl, funDcl]);
-
+  
   local fwrd::Expr =
     substExpr(
-      [typedefSubstitution(
+      [declRefSubstitution(
+         "__allocator__",
+         case allocator of
+           justExpr(e) -> e
+         | nothingExpr() -> declRefExpr(name("GC_malloc", location=builtin), location=builtin)
+         end),
+       typedefSubstitution(
          "__closure_type__",
          closureTypeExpr(
            nilQualifier(),
@@ -83,7 +117,7 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   struct ${envStructName} _env;
   __env_copy__;
   
-  struct ${envStructName} *_env_ptr = GC_malloc(sizeof(struct ${envStructName}));
+  struct ${envStructName} *_env_ptr = __allocator__(sizeof(struct ${envStructName}));
   *_env_ptr = _env;
   
   __closure_type__ _result;
@@ -97,22 +131,77 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
 }
 
-nonterminal CaptureList with env, pp, errors;
+function checkAllocatorErrors
+[Message] ::= loc::Location allocator::Decorated MaybeExpr
+{
+  local expectedType::Type =
+    functionType(
+      pointerType(
+        nilQualifier(),
+        builtinType(nilQualifier(), voidType())),
+      protoFunctionType([builtinType(nilQualifier(), unsignedType(longType()))], false),
+      nilQualifier());
+    
+  return
+    case allocator of
+      justExpr(e) ->
+      if compatibleTypes(expectedType, e.typerep, true, false) then []
+      else [err(e.location, s"Allocator must have type void*(unsigned long) (got ${showType(e.typerep)})")]
+    | nothingExpr() ->
+      if !null(lookupValue("GC_malloc", allocator.env)) then []
+      else [err(loc, "Lambdas lacking an explicit allocator require <gc.h> to be included.")]
+    end;
+}
 
-synthesized attribute envStructTrans::StructItemList occurs on CaptureList;
-synthesized attribute envCopyInTrans::Stmt occurs on CaptureList;  -- Copys env vars into _env
-synthesized attribute envCopyOutTrans::Stmt occurs on CaptureList; -- Copys _env out to vars
+synthesized attribute envStructTrans::StructItemList;
+synthesized attribute envCopyInTrans::Stmt;  -- Copys env vars into _env
+synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
-autocopy attribute globalEnv::Decorated Env occurs on CaptureList;
-autocopy attribute freeVariablesIn::[Name] occurs on CaptureList;
-autocopy attribute structNameIn::String occurs on CaptureList;
+autocopy attribute globalEnv::Decorated Env;
+autocopy attribute structNameIn::String;
+autocopy attribute freeVariablesIn::[Name];
+
+nonterminal MaybeCaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envCopyInTrans, envCopyOutTrans;
+
+abstract production justCaptureList
+top::MaybeCaptureList ::= cl::CaptureList
+{
+  top.pp = pp"[${cl.pp}]";
+  top.errors := cl.errors;
+  top.envStructTrans = cl.envStructTrans;
+  top.envCopyInTrans = cl.envCopyInTrans;
+  top.envCopyOutTrans = cl.envCopyOutTrans;
+}
+
+abstract production nothingCaptureList
+top::MaybeCaptureList ::=
+{
+  top.pp = pp"";
+  top.errors := envContents.errors; -- Should be []
+  top.envStructTrans = envContents.envStructTrans;
+  top.envCopyInTrans = envContents.envCopyInTrans;
+  top.envCopyOutTrans = envContents.envCopyOutTrans;
+  
+  local envContents::CaptureList =
+    foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
+  envContents.env = top.env;
+  envContents.globalEnv = top.globalEnv;
+  envContents.structNameIn = top.structNameIn;
+}
+
+nonterminal CaptureList with env, globalEnv, structNameIn, pp, errors, envStructTrans, envCopyInTrans, envCopyOutTrans;
 
 abstract production consCaptureList
 top::CaptureList ::= n::Name rest::CaptureList
 {
   top.pp = pp"${n.pp}, ${rest.pp}";
   
-  top.errors := n.valueLookupCheck ++ rest.errors;
+  top.errors := rest.errors;
+  top.errors <- n.valueLookupCheck;
+  top.errors <-
+    if n.valueItem.isItemValue
+    then []
+    else [err(n.location, "'" ++ n.name ++ "' does not refer to a value.")];
 
   -- Strip qualifiers and convert arrays and functions to pointers
   local varType::Type =
@@ -183,14 +272,4 @@ top::CaptureList ::=
   top.envStructTrans = nilStructItem();
   top.envCopyInTrans = nullStmt();
   top.envCopyOutTrans = nullStmt();
-}
-
-abstract production exprFreeVariables
-top::CaptureList ::=
-{
-  top.pp = pp"free_variables";
-  
-  local contents::[Name] = nubBy(nameEq, top.freeVariablesIn);
-  
-  forwards to foldr(consCaptureList, nilCaptureList(), contents);
 }
