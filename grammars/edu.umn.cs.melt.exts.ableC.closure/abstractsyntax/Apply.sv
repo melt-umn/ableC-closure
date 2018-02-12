@@ -35,7 +35,7 @@ top::Expr ::= fn::Expr args::Exprs
          "__closure_type__",
          closureTypeExpr(
            nilQualifier(),
-           argTypesToParameters(args.typereps),
+           argTypesToParameters(args.expectedTypes),
            typeName(directTypeExpr(closureResultType(fn.typerep, top.env)), baseTypeExpr()))),
        declRefSubstitution("__fn__", fn),
        exprsSubstitution("__args__", args)],
