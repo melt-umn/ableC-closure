@@ -23,6 +23,10 @@ concrete productions top::PostfixExpr_c
     { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, foldStmt(body.ast), location=top.location); }
 | 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' '(' res::TypeName_c ')' '{' body::BlockItemList_c '}'
     { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, foldStmt(body.ast), location=top.location); }
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::TypeName_c ')' '{' '}'
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, nullStmt(), location=top.location); }
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' '(' res::TypeName_c ')' '{' '}'
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, nullStmt(), location=top.location); }
 
 nonterminal MaybeAllocator_c with ast<MaybeExpr>, location;
 
