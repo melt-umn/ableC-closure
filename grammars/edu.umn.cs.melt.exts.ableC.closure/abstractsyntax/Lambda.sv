@@ -34,7 +34,7 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
   local fwrd::Expr =
     lambdaStmtExpr(
       allocator, captured, params,
-      typeName(directTypeExpr(res.typerep), baseTypeExpr()),
+      typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
       returnStmt(justExpr(res)),
       location=top.location);
   
