@@ -36,7 +36,10 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
     lambdaStmtExpr(
       allocator, captured, params,
       typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
-      returnStmt(justExpr(res)),
+      case res.typerep of
+        builtinType(_, voidType()) -> exprStmt(res)
+      | _ -> returnStmt(justExpr(res))
+      end,
       location=top.location);
   
   forwards to mkErrorCheck(localErrors, fwrd);
