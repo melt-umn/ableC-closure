@@ -111,11 +111,10 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
            nilQualifier(),
            argTypesToParameters(params.typereps),
            typeName(directTypeExpr(res.typerep), baseTypeExpr()))),
-       stmtSubstitution("__env_copy__", captured.envCopyInTrans)],
+       initializerSubstitution("__env_init__", objectInitializer(captured.envInitTrans))],
       parseExpr(s"""
 ({proto_typedef __closure_type__;
-  struct ${envStructName} _env;
-  __env_copy__;
+  struct ${envStructName} _env = __env_init__;
   
   struct ${envStructName} *_env_ptr = __allocator__(sizeof(struct ${envStructName}));
   *_env_ptr = _env;
@@ -154,14 +153,14 @@ function checkAllocatorErrors
 }
 
 synthesized attribute envStructTrans::StructItemList;
-synthesized attribute envCopyInTrans::Stmt;  -- Copys env vars into _env
+synthesized attribute envInitTrans::InitList; -- Initializer body for _env using vars
 synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
 autocopy attribute globalEnv::Decorated Env;
 autocopy attribute structNameIn::String;
 autocopy attribute freeVariablesIn::[Name];
 
-nonterminal MaybeCaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envCopyInTrans, envCopyOutTrans;
+nonterminal MaybeCaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production justCaptureList
 top::MaybeCaptureList ::= cl::CaptureList
@@ -169,7 +168,7 @@ top::MaybeCaptureList ::= cl::CaptureList
   top.pp = pp"[${cl.pp}]";
   top.errors := cl.errors;
   top.envStructTrans = cl.envStructTrans;
-  top.envCopyInTrans = cl.envCopyInTrans;
+  top.envInitTrans = cl.envInitTrans;
   top.envCopyOutTrans = cl.envCopyOutTrans;
 }
 
@@ -179,7 +178,7 @@ top::MaybeCaptureList ::=
   top.pp = pp"";
   top.errors := envContents.errors; -- Should be []
   top.envStructTrans = envContents.envStructTrans;
-  top.envCopyInTrans = envContents.envCopyInTrans;
+  top.envInitTrans = envContents.envInitTrans;
   top.envCopyOutTrans = envContents.envCopyOutTrans;
   
   local envContents::CaptureList =
@@ -189,7 +188,7 @@ top::MaybeCaptureList ::=
   envContents.structNameIn = top.structNameIn;
 }
 
-nonterminal CaptureList with env, globalEnv, structNameIn, pp, errors, envStructTrans, envCopyInTrans, envCopyOutTrans;
+nonterminal CaptureList with env, globalEnv, structNameIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production consCaptureList
 top::CaptureList ::= n::Name rest::CaptureList
@@ -226,24 +225,15 @@ top::CaptureList ::= n::Name rest::CaptureList
             nilStructDeclarator())),
         rest.envStructTrans);
   
-  top.envCopyInTrans =
-    if isGlobal then rest.envCopyInTrans else
-      seqStmt(
-        rest.envCopyInTrans,
-        exprStmt(
-          eqExpr(
-            memberExpr(
-              declRefExpr(name("_env", location=builtin), location=builtin),
-              false,
-              n,
-              location=builtin),
-            declRefExpr(n, location=builtin),
-          location=builtin)));
+  top.envInitTrans =
+    if isGlobal then rest.envInitTrans else
+      consInit(
+        init(exprInitializer(declRefExpr(n, location=builtin))),
+        rest.envInitTrans);
   
   top.envCopyOutTrans =
     if isGlobal then rest.envCopyOutTrans else
       seqStmt(
-        rest.envCopyOutTrans,
         declStmt(
           variableDecls(
             [], nilAttribute(),
@@ -260,7 +250,8 @@ top::CaptureList ::= n::Name rest::CaptureList
                       false,
                       n,
                       location=builtin)))),
-              nilDeclarator()))));
+              nilDeclarator()))),
+        rest.envCopyOutTrans);
 }
 
 abstract production nilCaptureList
@@ -270,6 +261,6 @@ top::CaptureList ::=
   top.errors := [];
   
   top.envStructTrans = nilStructItem();
-  top.envCopyInTrans = nullStmt();
+  top.envInitTrans = nilInit();
   top.envCopyOutTrans = nullStmt();
 }
