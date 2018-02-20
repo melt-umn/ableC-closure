@@ -1,6 +1,7 @@
 #include <gc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int f(closure<(int) -> int> fun, int a) {
   return fun(a);

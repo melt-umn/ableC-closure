@@ -84,6 +84,6 @@ runtime_error/%.test: runtime_error/%.out
 	touch $@
 
 clean:
-	rm -f *~ build.xml */*.i */*.c */*.o */*.out */*.test *.jar *.copperdump.html build.xml
+	rm -f *~ */*~ */*.i */*.c */*.o */*.out */*.test *.jar *.copperdump.html build.xml
 
 .PHONY: all libs $(LIBS) clean

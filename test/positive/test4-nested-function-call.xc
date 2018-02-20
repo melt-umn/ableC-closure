@@ -1,4 +1,5 @@
 #include <gc.h>
+#include <string.h>
 
 int main() {
   closure<(int) -> int> fn() {

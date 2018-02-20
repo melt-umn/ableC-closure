@@ -1,4 +1,6 @@
 #include <gc.h>
+#include <string.h>
+#include <stdbool.h>
 
 int main() {
   closure<(int) -> int> fn() {

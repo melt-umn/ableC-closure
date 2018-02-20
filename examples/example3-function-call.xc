@@ -1,6 +1,7 @@
 #include <gc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int f(int a) {
   return a + 1;

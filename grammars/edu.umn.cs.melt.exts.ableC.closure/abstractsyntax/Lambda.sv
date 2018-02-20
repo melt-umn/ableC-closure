@@ -23,6 +23,7 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
   
   local localErrors::[Message] =
     checkAllocatorErrors(top.location, allocator) ++
+    checkMemcpyErrors(top.location, top.env) ++
     allocator.errors ++ captured.errors ++ params.errors ++ res.errors;
   
   local paramNames::[Name] =
@@ -49,6 +50,7 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
   
   local localErrors::[Message] =
     checkAllocatorErrors(top.location, allocator) ++
+    checkMemcpyErrors(top.location, top.env) ++
     allocator.errors ++ captured.errors ++ params.errors ++ res.errors ++ body.errors;
   
   local paramNames::[Name] =
@@ -117,7 +119,7 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   struct ${envStructName} _env = __env_init__;
   
   struct ${envStructName} *_env_ptr = __allocator__(sizeof(struct ${envStructName}));
-  *_env_ptr = _env;
+  memcpy(_env_ptr, &_env, sizeof(struct ${envStructName}));
   
   __closure_type__ _result;
   _result._fn_name = "${funName}";
@@ -148,8 +150,16 @@ function checkAllocatorErrors
       else [err(e.location, s"Allocator must have type void*(unsigned long) (got ${showType(e.typerep)})")]
     | nothingExpr() ->
       if !null(lookupValue("GC_malloc", allocator.env)) then []
-      else [err(loc, "Lambdas lacking an explicit allocator require <gc.h> to be included.")]
+      else [err(loc, "Lambda lacking an explicit allocator requires <gc.h> to be included.")]
     end;
+}
+
+function checkMemcpyErrors
+[Message] ::= loc::Location env::Decorated Env
+{
+  return
+    if !null(lookupValue("memcpy", env)) then []
+    else [err(loc, "Lambda requires definition of memcpy (include <string.h>?).")];
 }
 
 synthesized attribute envStructTrans::StructItemList;

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Missing include of gc.h
+// Missing include of gc.h and string.h
 
 int f(closure<(int) -> int> fun, int a) {
   return fun(a);

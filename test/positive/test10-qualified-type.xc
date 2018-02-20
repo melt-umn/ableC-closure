@@ -1,4 +1,5 @@
 #include <gc.h>
+#include <string.h>
 
 int main() {
   closure<(const int x) -> int> foo = lambda (const int x) -> (x + 2);
