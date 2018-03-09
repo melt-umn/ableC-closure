@@ -25,7 +25,7 @@ mwda: $(MWDA_JAR)
 
 $(MDA_JAR): $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MDA_ARTIFACT)/*.sv)
-	silver -o $(MDA_JAR) $(SVFLAGS) --clean $(MDA_ARTIFACT)
+	silver -o $(MDA_JAR) $(SVFLAGS) $(MDA_ARTIFACT)
 
 $(MWDA_JAR): $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MWDA_ARTIFACT)/*.sv)
