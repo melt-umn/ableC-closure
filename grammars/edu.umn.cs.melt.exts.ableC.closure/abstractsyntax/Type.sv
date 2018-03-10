@@ -29,20 +29,20 @@ struct __attribute__((refId("${structRefId}"),
 };
 """);
   
-  forwards to 
-    if !null(params.errors) || !null(res.errors)
-    then errorTypeExpr(params.errors ++ res.errors)
-    else
-      injectGlobalDeclsTypeExpr(
-        consDecl(
-          maybeRefIdDecl(
-            structRefId,
-            substDecl(
-              [parametersSubstitution("__params__", params),
-               typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty))],
-              closureStructDecl)),
-          nilDecl()),
-        directTypeExpr(closureType(q, params.typereps, res.typerep)));
+  local localErrors::[Message] = params.errors ++ res.errors;
+  local fwrd::BaseTypeExpr =
+    injectGlobalDeclsTypeExpr(
+      consDecl(
+        maybeRefIdDecl(
+          structRefId,
+          substDecl(
+            [parametersSubstitution("__params__", params),
+             typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty))],
+            closureStructDecl)),
+        nilDecl()),
+      directTypeExpr(closureType(q, params.typereps, res.typerep)));
+  
+  forwards to if !null(localErrors) then errorTypeExpr(localErrors) else fwrd;
 }
 
 abstract production closureType

@@ -6,16 +6,24 @@ Maybe<(Expr ::= Expr Exprs Location)> ::= t::Type env::Decorated Env
   overloads <- [pair("edu:umn:cs:melt:exts:ableC:closure:closure", applyExpr(_, _, location=_))];
 }
 
+abstract production applyExpr
+top::Expr ::= fn::Expr args::Exprs
+{
+  propagate substituted;
+  top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
+  
+  forwards to applyTransExpr(fn, args, closureTypeExpr, location=top.location);
+}
+
 global applyExprFwrd::Expr = parseExpr(s"""
 ({proto_typedef __closure_type__;
   __closure_type__ _temp_closure = __fn__;
   _temp_closure._fn(_temp_closure._env, __args__);})""");
 
-abstract production applyExpr
-top::Expr ::= fn::Expr args::Exprs
+abstract production applyTransExpr
+top::Expr ::= fn::Expr args::Exprs closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName)
 {
   propagate substituted;
-
   top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
   
   local localErrors :: [Message] =
