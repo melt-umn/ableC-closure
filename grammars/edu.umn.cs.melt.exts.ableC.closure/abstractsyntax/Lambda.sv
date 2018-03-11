@@ -23,7 +23,7 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
     lambdaTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, 
-      closureTypeExpr, nullStmt(), [], nullStmt(),
+      closureTypeExpr, nullStmt(), nullStmt(),
       location=top.location);
 }
 
@@ -37,12 +37,12 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
     lambdaStmtTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, body,
-      closureTypeExpr, nullStmt(), [], nullStmt(),
+      closureTypeExpr, nullStmt(), nullStmt(),
       location=top.location);
 }
 
 abstract production lambdaTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraCaptureInitProds::[(Stmt ::= Name)] extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
   top.pp = pp"trans lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
@@ -59,14 +59,14 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList par
         builtinType(_, voidType()) -> exprStmt(res)
       | _ -> returnStmt(justExpr(res))
       end,
-      closureTypeExpr, extraInit1, extraCaptureInitProds, extraInit2,
+      closureTypeExpr, extraInit1, extraInit2,
       location=top.location);
   
   forwards to mkErrorCheck(localErrors, fwrd);
 }
 
 abstract production lambdaStmtTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraCaptureInitProds::[(Stmt ::= Name)] extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
   top.pp = pp"trans lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
@@ -91,7 +91,6 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList par
   local funName::String = s"_lambda_fn_${id}";
   
   captured.structNameIn = envStructName;
-  captured.extraInitProds = extraCaptureInitProds;
   
   local envStructDcl::Decl =
     typeExprDecl(
@@ -129,7 +128,6 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
          objectInitializer(
            captured.envInitTrans)),
        stmtSubstitution("__extra_init_1__", extraInit1),
-       stmtSubstitution("__extra_capture_init__", captured.extraInitTrans),
        declRefSubstitution(
          "__allocator__",
          allocator(parseExpr(s"sizeof(struct ${envStructName})"), top.location)),
@@ -145,7 +143,6 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   struct ${envStructName} _env = __env_init__;
   
   __extra_init_1__;
-  __extra_capture_init__;
   
   struct ${envStructName} *_env_ptr = __allocator__;
   memcpy(_env_ptr, &_env, sizeof(struct ${envStructName}));
@@ -207,15 +204,13 @@ function checkMemcpyErrors
 
 synthesized attribute envStructTrans::StructItemList;
 synthesized attribute envInitTrans::InitList; -- Initializer body for _env using vars
-synthesized attribute extraInitTrans::Stmt; -- Extra initialization statments for each captured var
 synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
 autocopy attribute globalEnv::Decorated Env;
 autocopy attribute structNameIn::String;
 autocopy attribute freeVariablesIn::[Name];
-autocopy attribute extraInitProds::[(Stmt ::= Name)];
 
-nonterminal MaybeCaptureList with env, globalEnv, structNameIn, freeVariablesIn, extraInitProds, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans, extraInitTrans;
+nonterminal MaybeCaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production justCaptureList
 top::MaybeCaptureList ::= cl::CaptureList
@@ -224,7 +219,6 @@ top::MaybeCaptureList ::= cl::CaptureList
   top.errors := cl.errors;
   top.envStructTrans = cl.envStructTrans;
   top.envInitTrans = cl.envInitTrans;
-  top.extraInitTrans = cl.extraInitTrans;
   top.envCopyOutTrans = cl.envCopyOutTrans;
 }
 
@@ -235,7 +229,7 @@ top::MaybeCaptureList ::=
   forwards to justCaptureList(foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn)));
 }
 
-nonterminal CaptureList with env, globalEnv, structNameIn, extraInitProds, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans, extraInitTrans;
+nonterminal CaptureList with env, globalEnv, structNameIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production consCaptureList
 top::CaptureList ::= n::Name rest::CaptureList
@@ -278,11 +272,6 @@ top::CaptureList ::= n::Name rest::CaptureList
         init(exprInitializer(declRefExpr(n, location=builtin))),
         rest.envInitTrans);
   
-  top.extraInitTrans =
-    seqStmt(
-      foldStmt(map(\ prod::(Stmt ::= Name) -> prod(n), top.extraInitProds)),
-      rest.extraInitTrans);
-  
   top.envCopyOutTrans =
     if isGlobal then rest.envCopyOutTrans else
       seqStmt(
@@ -314,6 +303,5 @@ top::CaptureList ::=
   
   top.envStructTrans = nilStructItem();
   top.envInitTrans = nilInit();
-  top.extraInitTrans = nullStmt();
   top.envCopyOutTrans = nullStmt();
 }
