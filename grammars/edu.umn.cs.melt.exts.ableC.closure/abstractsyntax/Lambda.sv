@@ -21,9 +21,9 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
   
   forwards to
     lambdaTransExpr(
-      getAllocator(top.location, allocator),
+      fromMaybeAllocator(allocator),
       captured, params, res, 
-      closureTypeExpr, nullStmt(), [],
+      closureTypeExpr, nullStmt(), [], nullStmt(),
       location=top.location);
 }
 
@@ -35,17 +35,17 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
   
   forwards to
     lambdaStmtTransExpr(
-      getAllocator(top.location, allocator),
+      fromMaybeAllocator(allocator),
       captured, params, res, body,
-      closureTypeExpr, nullStmt(), [],
+      closureTypeExpr, nullStmt(), [], nullStmt(),
       location=top.location);
 }
 
 abstract production lambdaTransExpr
-top::Expr ::= allocator::Expr captured::MaybeCaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit::Stmt extraCaptureInitProds::[(Stmt ::= Name)]
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraCaptureInitProds::[(Stmt ::= Name)] extraInit2::Stmt
 {
   propagate substituted;
-  top.pp = pp"trans lambda allocate(${allocator.pp}) ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
+  top.pp = pp"trans lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   local localErrors::[Message] = res.errors;
   res.env = openScopeEnv(addEnv(params.defs, params.env));
@@ -59,31 +59,21 @@ top::Expr ::= allocator::Expr captured::MaybeCaptureList params::Parameters res:
         builtinType(_, voidType()) -> exprStmt(res)
       | _ -> returnStmt(justExpr(res))
       end,
-      closureTypeExpr, extraInit, extraCaptureInitProds,
+      closureTypeExpr, extraInit1, extraCaptureInitProds, extraInit2,
       location=top.location);
   
   forwards to mkErrorCheck(localErrors, fwrd);
 }
 
 abstract production lambdaStmtTransExpr
-top::Expr ::= allocator::Expr captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit::Stmt extraCaptureInitProds::[(Stmt ::= Name)]
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraCaptureInitProds::[(Stmt ::= Name)] extraInit2::Stmt
 {
   propagate substituted;
-  top.pp = pp"trans lambda allocate(${allocator.pp}) ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
-  
-  local expectedAllocatorType::Type =
-    functionType(
-      pointerType(
-        nilQualifier(),
-        builtinType(nilQualifier(), voidType())),
-      protoFunctionType([builtinType(nilQualifier(), unsignedType(longType()))], false),
-      nilQualifier());
+  top.pp = pp"trans lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
   
   local localErrors::[Message] =
-    (if compatibleTypes(expectedAllocatorType, allocator.typerep, true, false) then []
-     else [err(allocator.location, s"Allocator must have type void *(unsigned long) (got ${showType(allocator.typerep)})")]) ++
     checkMemcpyErrors(top.location, top.env) ++
-    allocator.errors ++ captured.errors ++ params.errors ++ res.errors ++ body.errors;
+    captured.errors ++ params.errors ++ res.errors ++ body.errors;
   
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
@@ -138,22 +128,26 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
          "__env_init__",
          objectInitializer(
            captured.envInitTrans)),
+       stmtSubstitution("__extra_init_1__", extraInit1),
        stmtSubstitution("__extra_capture_init__", captured.extraInitTrans),
-       declRefSubstitution("__allocator__", allocator),
+       declRefSubstitution(
+         "__allocator__",
+         allocator(parseExpr(s"sizeof(struct ${envStructName})"), top.location)),
        typedefSubstitution(
          "__closure_type__",
          closureTypeExpr(
            nilQualifier(),
            argTypesToParameters(params.typereps),
            typeName(directTypeExpr(res.typerep), baseTypeExpr()))),
-       stmtSubstitution("__extra_init__", extraInit)],
+       stmtSubstitution("__extra_init_2__", extraInit2)],
       parseExpr(s"""
 ({proto_typedef __closure_type__;
   struct ${envStructName} _env = __env_init__;
   
+  __extra_init_1__;
   __extra_capture_init__;
   
-  struct ${envStructName} *_env_ptr = __allocator__(sizeof(struct ${envStructName}));
+  struct ${envStructName} *_env_ptr = __allocator__;
   memcpy(_env_ptr, &_env, sizeof(struct ${envStructName}));
   
   __closure_type__ _result;
@@ -161,7 +155,7 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
   _result._env = (void*)_env_ptr;
   _result._fn = ${funName};
   
-  __extra_init__;
+  __extra_init_2__;
   
   _result;})
 """));
@@ -170,16 +164,36 @@ static __res_type__ ${funName}(void *_env_ptr, __params__) {
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
 }
 
-function getAllocator
-Expr ::= loc::Location allocator::Decorated MaybeExpr
+function fromMaybeAllocator
+(Expr ::= Expr Location) ::= allocator::Decorated MaybeExpr
 {
+  local expectedType::Type =
+    functionType(
+      pointerType(
+        nilQualifier(),
+        builtinType(nilQualifier(), voidType())),
+      protoFunctionType([builtinType(nilQualifier(), unsignedType(longType()))], false),
+      nilQualifier());
+  
   return
     case allocator of
-      justExpr(e) -> e
+      justExpr(e) ->
+        if compatibleTypes(expectedType, e.typerep, true, false)
+        then \ size::Expr loc::Location -> callExpr(e, consExpr(size, nilExpr()), location=loc)
+        else
+          \ size::Expr loc::Location ->
+            errorExpr([err(e.location, s"Allocator must have type void *(unsigned long) (got ${showType(e.typerep)})")], location=loc)
     | nothingExpr() ->
-      if !null(lookupValue("GC_malloc", allocator.env))
-      then declRefExpr(name("GC_malloc", location=builtin), location=builtin)
-      else errorExpr([err(loc, "Lambda lacking an explicit allocator requires <gc.h> to be included.")], location=builtin)
+        if !null(lookupValue("GC_malloc", allocator.env))
+        then
+          \ size::Expr loc::Location ->
+            directCallExpr(
+              name("GC_malloc", location=builtin),
+              consExpr(size, nilExpr()),
+              location=loc)
+        else
+          \ size::Expr loc::Location ->
+            errorExpr([err(loc, "Lambda lacking an explicit allocator requires <gc.h> to be included.")], location=loc)
     end;
 }
 

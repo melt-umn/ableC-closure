@@ -29,7 +29,6 @@ abstract production freeExpr
 top::Expr ::= fn::Expr deallocate::Expr
 {
   propagate substituted;
-
   top.pp = pp"${fn.pp}.free(${deallocate.pp})";
   
   local deallocateExpectedType::Type =
