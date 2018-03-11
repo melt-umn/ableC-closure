@@ -232,18 +232,7 @@ abstract production nothingCaptureList
 top::MaybeCaptureList ::=
 {
   top.pp = pp"";
-  top.errors := envContents.errors; -- Should be []
-  top.envStructTrans = envContents.envStructTrans;
-  top.envInitTrans = envContents.envInitTrans;
-  top.extraInitTrans = envContents.extraInitTrans;
-  top.envCopyOutTrans = envContents.envCopyOutTrans;
-  
-  local envContents::CaptureList =
-    foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
-  envContents.env = top.env;
-  envContents.globalEnv = top.globalEnv;
-  envContents.structNameIn = top.structNameIn;
-  envContents.extraInitProds = top.extraInitProds;
+  forwards to justCaptureList(foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn)));
 }
 
 nonterminal CaptureList with env, globalEnv, structNameIn, extraInitProds, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans, extraInitTrans;
