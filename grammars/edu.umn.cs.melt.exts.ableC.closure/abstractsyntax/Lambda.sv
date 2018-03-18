@@ -86,9 +86,9 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList par
   body.env = openScopeEnv(addEnv(params.defs, params.env));
   body.returnType = just(res.typerep);
   
-  local id::String = toString(genInt()); 
-  local envStructName::String = s"_lambda_env_${id}_s";
-  local funName::String = s"_lambda_fn_${id}";
+  production id::String = toString(genInt()); 
+  production envStructName::String = s"_lambda_env_${id}_s";
+  production funName::String = s"_lambda_fn_${id}";
   
   captured.structNameIn = envStructName;
   
@@ -244,7 +244,7 @@ top::CaptureList ::= n::Name rest::CaptureList
     else [err(n.location, "'" ++ n.name ++ "' does not refer to a value.")];
   
   -- Strip qualifiers and convert arrays and functions to pointers
-  local varType::Type =
+  production varType::Type =
     case n.valueItem.typerep of
       arrayType(elem, _, _, _) -> pointerType(nilQualifier(), elem)
     | functionType(res, sub, q) ->
@@ -253,7 +253,7 @@ top::CaptureList ::= n::Name rest::CaptureList
     end;
   
   -- If true, then this variable is in scope for the lifted function and doesn't need to be captured
-  local isGlobal::Boolean = !null(lookupValue(n.name, top.globalEnv));
+  production isGlobal::Boolean = !null(lookupValue(n.name, top.globalEnv));
   
   top.envStructTrans =
     if isGlobal then rest.envStructTrans else

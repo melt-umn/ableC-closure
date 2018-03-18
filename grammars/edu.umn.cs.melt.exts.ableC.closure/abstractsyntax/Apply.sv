@@ -12,7 +12,7 @@ top::Expr ::= fn::Expr args::Exprs
   propagate substituted;
   top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
   
-  forwards to applyTransExpr(fn, args, closureTypeExpr, location=top.location);
+  forwards to applyTransExpr(fn, args, closureTypeExpr, isClosureType, location=top.location);
 }
 
 global applyExprFwrd::Expr = parseExpr(s"""
@@ -21,7 +21,7 @@ global applyExprFwrd::Expr = parseExpr(s"""
   _temp_closure._fn(_temp_closure._env, __args__);})""");
 
 abstract production applyTransExpr
-top::Expr ::= fn::Expr args::Exprs closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName)
+top::Expr ::= fn::Expr args::Exprs closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) isClosureType::(Boolean ::= Type)
 {
   propagate substituted;
   top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
