@@ -269,7 +269,7 @@ top::CaptureList ::= n::Name rest::CaptureList
   top.envInitTrans =
     if isGlobal then rest.envInitTrans else
       consInit(
-        init(exprInitializer(declRefExpr(n, location=builtin))),
+        positionalInit(exprInitializer(declRefExpr(n, location=builtin))),
         rest.envInitTrans);
   
   top.envCopyOutTrans =
