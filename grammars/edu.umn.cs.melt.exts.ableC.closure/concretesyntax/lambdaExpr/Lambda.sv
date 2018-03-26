@@ -36,13 +36,13 @@ concrete productions top::MaybeAllocator_c
 | 
     { top.ast = nothingExpr(); }
 
-nonterminal MaybeCaptureList_c with ast<MaybeCaptureList>;
+nonterminal MaybeCaptureList_c with ast<CaptureList>;
 
 concrete productions top::MaybeCaptureList_c
 | '[' cl::CaptureList_c ']'
-    { top.ast = justCaptureList(cl.ast); }
+    { top.ast = cl.ast; }
 | 
-    { top.ast = nothingCaptureList(); }
+    { top.ast = freeVariablesCaptureList(); }
 
 nonterminal CaptureList_c with ast<CaptureList>;
 
@@ -51,5 +51,7 @@ concrete productions top::CaptureList_c
     { top.ast = consCaptureList(fromId(id), rest.ast); }
 | id::Identifier_t
     { top.ast = consCaptureList(fromId(id), nilCaptureList()); }
+| '...'
+    { top.ast = freeVariablesCaptureList(); }
 |
     { top.ast = nilCaptureList(); }

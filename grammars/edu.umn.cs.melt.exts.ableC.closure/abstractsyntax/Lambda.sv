@@ -14,10 +14,10 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:overloadable as ovrld;
 global builtin::Location = builtinLoc("closure");
 
 abstract production lambdaExpr
-top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters res::Expr
+top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::Expr
 {
   propagate substituted;
-  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   forwards to
     lambdaTransExpr(
@@ -28,10 +28,10 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
 }
 
 abstract production lambdaStmtExpr
-top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt
+top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::TypeName body::Stmt
 {
   propagate substituted;
-  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
   
   forwards to
     lambdaStmtTransExpr(
@@ -42,10 +42,10 @@ top::Expr ::= allocator::MaybeExpr captured::MaybeCaptureList params::Parameters
 }
 
 abstract production lambdaTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
-  top.pp = pp"trans lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
+  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   local localErrors::[Message] = res.errors;
   res.env = openScopeEnv(addEnv(params.defs, params.env));
@@ -66,10 +66,10 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList par
 }
 
 abstract production lambdaStmtTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::MaybeCaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
-  top.pp = pp"trans lambda ${captured.pp}(${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
   
   local localErrors::[Message] =
     checkMemcpyErrors(top.location, top.env) ++
@@ -210,26 +210,14 @@ autocopy attribute globalEnv::Decorated Env;
 autocopy attribute structNameIn::String;
 autocopy attribute freeVariablesIn::[Name];
 
-nonterminal MaybeCaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
+nonterminal CaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
-abstract production justCaptureList
-top::MaybeCaptureList ::= cl::CaptureList
+abstract production freeVariablesCaptureList
+top::CaptureList ::=
 {
-  top.pp = pp"[${cl.pp}]";
-  top.errors := cl.errors;
-  top.envStructTrans = cl.envStructTrans;
-  top.envInitTrans = cl.envInitTrans;
-  top.envCopyOutTrans = cl.envCopyOutTrans;
+  top.pp = pp"...";
+  forwards to foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
 }
-
-abstract production nothingCaptureList
-top::MaybeCaptureList ::=
-{
-  top.pp = pp"";
-  forwards to justCaptureList(foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn)));
-}
-
-nonterminal CaptureList with env, globalEnv, structNameIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production consCaptureList
 top::CaptureList ::= n::Name rest::CaptureList
@@ -293,6 +281,8 @@ top::CaptureList ::= n::Name rest::CaptureList
                       location=builtin)))),
               nilDeclarator()))),
         rest.envCopyOutTrans);
+  
+  rest.freeVariablesIn = removeBy(nameEq, n, top.freeVariablesIn);
 }
 
 abstract production nilCaptureList
