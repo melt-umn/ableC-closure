@@ -37,7 +37,7 @@ build:
 	$(MAKE) -C examples ableC.jar
 
 examples:
-	$(MAKE) -C examples -j
+	$(MAKE) -C examples
 
 analyses: mda mwda
 
@@ -48,7 +48,7 @@ mwda:
 	$(MAKE) -C modular_analyses mwda
 
 test:
-	$(MAKE) -C tests -kj
+	$(MAKE) -C tests -k
 
 clean:
 	rm -f *~ 
