@@ -65,7 +65,15 @@ top::Type ::= q::Qualifiers params::[Type] res::Type
   local structName::String = closureStructName(params, res);
   local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
   
-  forwards to tagType(q, refIdTagType(structSEU(), structName, structRefId));
+  local isErrorType::Boolean =
+    foldr(
+      \ a::Boolean b::Boolean -> a || b, false,
+      map(\ t::Type -> case t of errorType() -> true | _ -> false end, res :: params));
+  
+  forwards to
+    if isErrorType
+    then errorType()
+    else tagType(q, refIdTagType(structSEU(), structName, structRefId));
 }
 
 function closureStructName
