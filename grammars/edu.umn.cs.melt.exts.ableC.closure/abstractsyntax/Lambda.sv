@@ -48,7 +48,8 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   local localErrors::[Message] = res.errors;
-  res.env = openScopeEnv(addEnv(params.defs, params.env));
+  params.env = openScopeEnv(top.env);
+  res.env = addEnv(params.defs, params.env);
   res.returnType = just(res.typerep);
   
   local fwrd::Expr =
@@ -82,8 +83,8 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   res.env = top.env;
   res.returnType = nothing();
-  params.env = addEnv(res.defs, res.env);
-  body.env = openScopeEnv(addEnv(params.defs, params.env));
+  params.env = openScopeEnv(addEnv(res.defs, res.env));
+  body.env = addEnv(params.defs, params.env);
   body.returnType = just(res.typerep);
   
   production id::String = toString(genInt()); 
