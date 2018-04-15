@@ -240,6 +240,7 @@ top::CaptureList ::= n::Name rest::CaptureList
         pointerType(nilQualifier(), noncanonicalType(parenType(functionType(res, sub, q))))
     | t -> t
     end;
+  varType.inArrayType = false;
   
   -- If true, then this variable is in scope for the lifted function and doesn't need to be captured
   production isGlobal::Boolean = !null(lookupValue(n.name, top.globalEnv));
@@ -249,7 +250,7 @@ top::CaptureList ::= n::Name rest::CaptureList
       consStructItem(
         structItem(
           nilAttribute(),
-          directTypeExpr(varType),
+          directTypeExpr(varType.variableArrayConversion),
           consStructDeclarator(
             structField(n, baseTypeExpr(), nilAttribute()),
             nilStructDeclarator())),
@@ -295,4 +296,94 @@ top::CaptureList ::=
   top.envStructTrans = nilStructItem();
   top.envInitTrans = nilInit();
   top.envCopyOutTrans = nullStmt();
+}
+
+autocopy attribute inArrayType::Boolean occurs on Type, ArrayType;
+synthesized attribute variableArrayConversion<a>::a;
+attribute variableArrayConversion<Type> occurs on Type;
+attribute variableArrayConversion<ArrayType> occurs on ArrayType;
+attribute variableArrayConversion<FunctionType> occurs on FunctionType;
+
+aspect default production
+top::Type ::=
+{
+  top.variableArrayConversion = top;
+}
+
+aspect production pointerType
+top::Type ::= q::Qualifiers  target::Type
+{
+  propagate variableArrayConversion;
+  target.inArrayType = false;
+}
+
+aspect production arrayType
+top::Type ::= element::Type  indexQualifiers::Qualifiers  sizeModifier::ArraySizeModifier  sub::ArrayType
+{
+  propagate variableArrayConversion;
+  element.inArrayType = true;
+}
+
+aspect production constantArrayType
+top::ArrayType ::= size::Integer
+{
+  propagate variableArrayConversion;
+}
+
+aspect production incompleteArrayType
+top::ArrayType ::=
+{
+  propagate variableArrayConversion;
+}
+
+aspect production variableArrayType
+top::ArrayType ::= size::Decorated Expr
+{
+  top.variableArrayConversion =
+    if !top.inArrayType then incompleteArrayType() else constantArrayType(1);
+}
+
+aspect production functionType
+top::Type ::= result::Type  sub::FunctionType  q::Qualifiers
+{
+  propagate variableArrayConversion;
+  result.inArrayType = false;
+}
+
+aspect production protoFunctionType
+top::FunctionType ::= args::[Type]  variadic::Boolean
+{
+  top.variableArrayConversion =
+    protoFunctionType(map(doVariableArrayConversion, args), variadic);
+}
+
+aspect production noProtoFunctionType
+top::FunctionType ::=
+{
+  propagate variableArrayConversion;
+}
+
+aspect production atomicType
+top::Type ::= q::Qualifiers  bt::Type
+{
+  propagate variableArrayConversion;
+}
+
+aspect production attributedType
+top::Type ::= attrs::Attributes  bt::Type
+{
+  propagate variableArrayConversion;
+}
+
+aspect production vectorType
+top::Type ::= bt::Type  bytes::Integer
+{
+  propagate variableArrayConversion;
+}
+
+function doVariableArrayConversion
+Type ::= t::Type
+{
+  t.inArrayType = false;
+  return t.variableArrayConversion;
 }
