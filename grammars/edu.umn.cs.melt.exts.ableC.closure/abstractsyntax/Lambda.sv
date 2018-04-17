@@ -79,7 +79,6 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
   captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
-  captured.globalEnv = addEnv(params.defs ++ res.defs, globalEnv(top.env));
   
   res.env = top.env;
   res.returnType = nothing();
@@ -207,11 +206,10 @@ synthesized attribute envStructTrans::StructItemList;
 synthesized attribute envInitTrans::InitList; -- Initializer body for _env using vars
 synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
-autocopy attribute globalEnv::Decorated Env;
 autocopy attribute structNameIn::String;
 autocopy attribute freeVariablesIn::[Name];
 
-nonterminal CaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
+nonterminal CaptureList with env, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production freeVariablesCaptureList
 top::CaptureList ::=
@@ -243,7 +241,8 @@ top::CaptureList ::= n::Name rest::CaptureList
   varType.inArrayType = false;
   
   -- If true, then this variable is in scope for the lifted function and doesn't need to be captured
-  production isGlobal::Boolean = !null(lookupValue(n.name, top.globalEnv));
+  production isGlobal::Boolean =
+    !null(lookupValue(n.name, top.env)) && null(lookupValue(n.name, nonGlobalEnv(top.env)));
   
   top.envStructTrans =
     if isGlobal then rest.envStructTrans else
