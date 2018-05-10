@@ -3,6 +3,8 @@
 ABLEC_BASE?=../../../ableC
 # Path from current directory to top level extensions directory
 EXTS_BASE?=../../../extensions
+# Path from current directory to top level silver-ableC repository
+SILVER_ABLEC_BASE?=$(EXTS_BASE)/silver-ableC
 
 # The jar file to built
 ABLEC_JAR=ableC.jar
@@ -54,14 +56,17 @@ SRC_SOURCES=$(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
 
 all: $(ABLEC_JAR) $(C_FILES) $(OBJECTS) $(EXECUTABLES) $(TESTS)
 
+silver:
+	$(MAKE) -C $(SILVER_ABLEC_BASE)
+
 libs: $(LIBS)
 
 $(LIBS):
 	cd $(@:libs=src) && $(MAKE)
 
-$(ABLEC_JAR): $(GRAMMAR_SOURCES)
+$(ABLEC_JAR): $(GRAMMAR_SOURCES) | silver
 	touch $(wildcard $(ARTIFACT)/*.sv)
-	silver -o $(ABLEC_JAR) $(SVFLAGS) $(ARTIFACT)
+	silver-ableC -o $(ABLEC_JAR) $(SVFLAGS) $(ARTIFACT)
 
 %.c: %.xc $(ABLEC_JAR)
 	java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)

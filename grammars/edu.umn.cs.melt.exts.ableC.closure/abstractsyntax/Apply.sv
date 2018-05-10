@@ -15,11 +15,6 @@ top::Expr ::= fn::Expr args::Exprs
   forwards to applyTransExpr(fn, args, closureTypeExpr, isClosureType, location=top.location);
 }
 
-global applyExprFwrd::Expr = parseExpr(s"""
-({proto_typedef __closure_type__;
-  __closure_type__ _temp_closure = __fn__;
-  _temp_closure._fn(_temp_closure._env, __args__);})""");
-
 abstract production applyTransExpr
 top::Expr ::= fn::Expr args::Exprs closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) isClosureType::(Boolean ::= Type)
 {
@@ -38,16 +33,13 @@ top::Expr ::= fn::Expr args::Exprs closureTypeExpr::(BaseTypeExpr ::= Qualifiers
   args.expectedTypes = closureParamTypes(fn.typerep, top.env);
   
   local fwrd::Expr =
-    substExpr(
-      [typedefSubstitution(
-         "__closure_type__",
-         closureTypeExpr(
-           nilQualifier(),
-           argTypesToParameters(args.expectedTypes),
-           typeName(directTypeExpr(closureResultType(fn.typerep, top.env)), baseTypeExpr()))),
-       declRefSubstitution("__fn__", fn),
-       exprsSubstitution("__args__", args)],
-      applyExprFwrd);
+    ableC_Expr {
+      ({$BaseTypeExpr {
+          closureTypeExpr(
+            nilQualifier(),
+            argTypesToParameters(args.expectedTypes),
+            typeName(directTypeExpr(closureResultType(fn.typerep, top.env)), baseTypeExpr()))} _temp_closure = $Expr{fn};
+        _temp_closure._fn(_temp_closure._env, $Exprs{args});})};
 
   forwards to mkErrorCheck(localErrors, fwrd);
 }
