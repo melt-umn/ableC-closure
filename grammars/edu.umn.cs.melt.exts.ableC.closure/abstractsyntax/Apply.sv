@@ -34,12 +34,13 @@ top::Expr ::= fn::Expr args::Exprs closureTypeExpr::(BaseTypeExpr ::= Qualifiers
   
   local fwrd::Expr =
     ableC_Expr {
-      ({$BaseTypeExpr {
+      ({$BaseTypeExpr{
           closureTypeExpr(
             nilQualifier(),
             argTypesToParameters(args.expectedTypes),
-            typeName(directTypeExpr(closureResultType(fn.typerep, top.env)), baseTypeExpr()))} _temp_closure = $Expr{fn};
-        _temp_closure._fn(_temp_closure._env, $Exprs{args});})};
+            typeName(directTypeExpr(closureResultType(fn.typerep, top.env)), baseTypeExpr()))} _tmp_closure = $Expr{fn};
+        _tmp_closure._fn(_tmp_closure._env, $Exprs{args});})
+    };
 
   forwards to mkErrorCheck(localErrors, fwrd);
 }

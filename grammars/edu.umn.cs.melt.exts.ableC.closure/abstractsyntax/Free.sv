@@ -23,8 +23,6 @@ top::Expr ::= lhs::Expr deref::Boolean rhs::Name a::Exprs
     end;
 }
 
-global freeExprFwrd::Expr = parseExpr(s"""__deallocate__(__fn__._env)""");
-
 abstract production freeExpr
 top::Expr ::= fn::Expr deallocate::Expr
 {
@@ -43,11 +41,7 @@ top::Expr ::= fn::Expr deallocate::Expr
     else [err(deallocate.location, s"Deallocator must have type void(void*) (got ${showType(deallocate.typerep)})")] ++
     fn.errors ++ deallocate.errors;
   
-  local fwrd::Expr =
-    substExpr(
-      [declRefSubstitution("__fn__", fn),
-       declRefSubstitution("__deallocate__", deallocate)],
-      freeExprFwrd);
+  local fwrd::Expr = ableC_Expr { $Expr{deallocate}($Expr{fn}._env) };
 
   forwards to mkErrorCheck(localErrors, fwrd);
 }

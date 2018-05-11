@@ -6,7 +6,7 @@ EXTS_BASE?=../../../extensions
 # Path from current directory to top level silver-ableC repository
 SILVER_ABLEC_BASE?=$(EXTS_BASE)/silver-ableC
 
-# The jar file to built
+# The jar file to build
 ABLEC_JAR=ableC.jar
 # The artifact specification grammar to compile
 ARTIFACT=artifact

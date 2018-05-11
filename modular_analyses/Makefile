@@ -6,7 +6,7 @@ EXTS_BASE?=../../../extensions
 # Path from current directory to top level silver-ableC repository
 SILVER_ABLEC_BASE?=$(EXTS_BASE)/silver-ableC
 
-# The jar files to built
+# The jar files to build
 MDA_JAR=MDA.jar
 MWDA_JAR=MWDA.jar
 # The artifact specification grammars to compile

@@ -5,7 +5,6 @@ imports silver:langutil:pp;
 
 imports edu:umn:cs:melt:ableC:abstractsyntax:host;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
-imports edu:umn:cs:melt:ableC:abstractsyntax:construction:parsing;
 imports edu:umn:cs:melt:ableC:abstractsyntax:substitution;
 imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 imports edu:umn:cs:melt:ableC:abstractsyntax:overloadable as ovrld;
@@ -104,58 +103,39 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
           location=builtin)));
   
   local funDcl::Decl =
-    substDecl(
-      [typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty)),
-       parametersSubstitution("__params__", params),
-       stmtSubstitution("__env_copy__", captured.envCopyOutTrans),
-       stmtSubstitution("__body__", body)],
-      decls(
-        parseDecls(s"""
-proto_typedef __res_type__, __params__;
-static __res_type__ ${funName}(void *_env_ptr, __params__) {
-  struct ${envStructName} _env = *(struct ${envStructName}*)_env_ptr;
-  __env_copy__;
-  __body__;
-}
-""")));
+    ableC_Decl {
+      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $Name{funName}(void *_env_ptr, $Parameters{params}) {
+        struct $Name{envStructName} _env = *(struct $Name{envStructName}*)_env_ptr;
+        $Stmt{captured.envCopyOutTrans}
+        $Stmt{body}
+      }
+    };
   
   local globalDecls::Decls = foldDecl([envStructDcl, funDcl]);
   
   local fwrd::Expr =
-    substExpr(
-      [initializerSubstitution(
-         "__env_init__",
-         objectInitializer(
-           captured.envInitTrans)),
-       stmtSubstitution("__extra_init_1__", extraInit1),
-       declRefSubstitution(
-         "__allocator__",
-         allocator(parseExpr(s"sizeof(struct ${envStructName})"), top.location)),
-       typedefSubstitution(
-         "__closure_type__",
-         closureTypeExpr(
-           nilQualifier(),
-           argTypesToParameters(params.typereps),
-           typeName(directTypeExpr(res.typerep), baseTypeExpr()))),
-       stmtSubstitution("__extra_init_2__", extraInit2)],
-      parseExpr(s"""
-({proto_typedef __closure_type__;
-  struct ${envStructName} _env = __env_init__;
-  
-  __extra_init_1__;
-  
-  struct ${envStructName} *_env_ptr = __allocator__;
-  memcpy(_env_ptr, &_env, sizeof(struct ${envStructName}));
-  
-  __closure_type__ _result;
-  _result._fn_name = "${funName}";
-  _result._env = (void*)_env_ptr;
-  _result._fn = ${funName};
-  
-  __extra_init_2__;
-  
-  _result;})
-"""));
+    ableC_Expr {
+      ({struct $Name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans)};
+        
+        $Stmt{extraInit1};
+        
+        struct $Name{envStructName} *_env_ptr =
+          $Expr{allocator(ableC_Expr {sizeof(struct $Name{envStructName})}, top.location)};
+        memcpy(_env_ptr, &_env, sizeof(struct $Name{envStructName}));
+        
+        $BaseTypeExpr{
+          closureTypeExpr(
+            nilQualifier(),
+            argTypesToParameters(params.typereps),
+            typeName(directTypeExpr(res.typerep), baseTypeExpr()))} _result;
+        _result._fn_name = $Expr{stringLiteral(s"\"${funName}\"", location=builtin)};
+        _result._env = (void*)_env_ptr;
+        _result._fn = $Name{funName};
+        
+        $Stmt{extraInit2};
+        
+        _result;})
+    };
   
   forwards to
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
