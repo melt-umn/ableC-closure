@@ -3,8 +3,6 @@
 ABLEC_BASE?=../../../ableC
 # Path from current directory to top level extensions directory
 EXTS_BASE?=../../../extensions
-# Path from current directory to top level silver-ableC repository
-SILVER_ABLEC_BASE?=$(EXTS_BASE)/silver-ableC
 
 # The jar files to build
 MDA_JAR=MDA.jar
@@ -25,18 +23,15 @@ mda: $(MDA_JAR)
 
 mwda: $(MWDA_JAR)
 
-silver:
-	$(MAKE) -C $(SILVER_ABLEC_BASE)
-
-$(MDA_JAR): $(GRAMMAR_SOURCES) | silver
+$(MDA_JAR): $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MDA_ARTIFACT)/*.sv)
 	silver-ableC -o $(MDA_JAR) $(SVFLAGS) $(MDA_ARTIFACT)
 
-$(MWDA_JAR): $(GRAMMAR_SOURCES) | silver
+$(MWDA_JAR): $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MWDA_ARTIFACT)/*.sv)
 	silver-ableC -o $(MWDA_JAR) $(SVFLAGS) --clean --warn-all --warn-error $(MWDA_ARTIFACT)
 
 clean:
 	rm -f *~ *.jar *.copperdump.html build.xml
 
-.PHONY: all mda mwda silver clean
+.PHONY: all mda mwda clean
