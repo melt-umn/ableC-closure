@@ -104,8 +104,8 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local funDcl::Decl =
     ableC_Decl {
-      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $Name{funName}(void *_env_ptr, $Parameters{params}) {
-        struct $Name{envStructName} _env = *(struct $Name{envStructName}*)_env_ptr;
+      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{params}) {
+        struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
         $Stmt{captured.envCopyOutTrans}
         $Stmt{body}
       }
@@ -115,13 +115,13 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local fwrd::Expr =
     ableC_Expr {
-      ({struct $Name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans)};
+      ({struct $name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans)};
         
         $Stmt{extraInit1};
         
-        struct $Name{envStructName} *_env_ptr =
-          $Expr{allocator(ableC_Expr {sizeof(struct $Name{envStructName})}, top.location)};
-        memcpy(_env_ptr, &_env, sizeof(struct $Name{envStructName}));
+        struct $name{envStructName} *_env_ptr =
+          $Expr{allocator(ableC_Expr {sizeof(struct $name{envStructName})}, top.location)};
+        memcpy(_env_ptr, &_env, sizeof(struct $name{envStructName}));
         
         $BaseTypeExpr{
           closureTypeExpr(
@@ -130,7 +130,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
             typeName(directTypeExpr(res.typerep), baseTypeExpr()))} _result;
         _result._fn_name = $Expr{stringLiteral(s"\"${funName}\"", location=builtin)};
         _result._env = (void*)_env_ptr;
-        _result._fn = $Name{funName};
+        _result._fn = $name{funName};
         
         $Stmt{extraInit2};
         
@@ -243,25 +243,10 @@ top::CaptureList ::= n::Name rest::CaptureList
   
   top.envCopyOutTrans =
     if isGlobal then rest.envCopyOutTrans else
-      seqStmt(
-        declStmt(
-          variableDecls(
-            [], nilAttribute(),
-            directTypeExpr(addQualifiers([constQualifier(location=builtin)], varType)),
-            consDeclarator(
-              declarator(
-                n,
-                baseTypeExpr(),
-                nilAttribute(),
-                justInitializer(
-                  exprInitializer(
-                    memberExpr(
-                      declRefExpr(name("_env", location=builtin), location=builtin),
-                      false,
-                      n,
-                      location=builtin)))),
-              nilDeclarator()))),
-        rest.envCopyOutTrans);
+      ableC_Stmt {
+        const $directTypeExpr{varType} $Name{n} = _env.$Name{n};
+        $Stmt{rest.envCopyOutTrans}
+      };
   
   rest.freeVariablesIn = removeBy(nameEq, n, top.freeVariablesIn);
 }

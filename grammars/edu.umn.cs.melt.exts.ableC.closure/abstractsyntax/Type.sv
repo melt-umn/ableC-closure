@@ -28,8 +28,8 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
         maybeRefIdDecl(
           structRefId,
           ableC_Decl {
-            struct __attribute__((refId($Expr{stringLiteral(s"\"${structRefId}\"", location=builtin)}),
-                                  module("edu:umn:cs:melt:exts:ableC:closure:closure"))) $Name{structName} {
+            struct __attribute__((refId($stringLiteralExpr{structRefId}),
+                                  module("edu:umn:cs:melt:exts:ableC:closure:closure"))) $name{structName} {
               const char *_fn_name; // For debugging
               void *_env; // Pointer to generated struct containing env
               $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*_fn)(void *env, $Parameters{params}); // First param is above env struct pointer
