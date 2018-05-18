@@ -47,10 +47,10 @@ concrete productions top::MaybeCaptureList_c
 nonterminal CaptureList_c with ast<CaptureList>;
 
 concrete productions top::CaptureList_c
-| id::Identifier_t ',' rest::CaptureList_c
-    { top.ast = consCaptureList(fromId(id), rest.ast); }
-| id::Identifier_t
-    { top.ast = consCaptureList(fromId(id), nilCaptureList()); }
+| id::Identifier_c ',' rest::CaptureList_c
+    { top.ast = consCaptureList(id.ast, rest.ast); }
+| id::Identifier_c
+    { top.ast = consCaptureList(id.ast, nilCaptureList()); }
 | '...'
     { top.ast = freeVariablesCaptureList(); }
 |
