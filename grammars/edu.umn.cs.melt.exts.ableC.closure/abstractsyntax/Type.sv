@@ -55,8 +55,20 @@ top::Type ::= q::Qualifiers params::[Type] res::Type
           map((.rpp), params)))}) -> ${res.lpp}${res.rpp}>";
   top.rpp = notext();
   
+  top.withoutTypeQualifiers = closureType(nilQualifier(), params, res);
+  top.withoutExtensionQualifiers = closureType(filterExtensionQualifiers(q), params, res);
   top.withTypeQualifiers =
     closureType(foldQualifier(top.addedTypeQualifiers ++ q.qualifiers), params, res);
+  top.mergeQualifiers = \t2::Type ->
+    case t2 of
+      closureType(q2, params2, res2) ->
+        closureType(
+          unionQualifiers(top.qualifiers, q2.qualifiers),
+          zipWith(\ t1::Type t2::Type -> t1.mergeQualifiers(t2), params, params2),
+          res.mergeQualifiers(res2))
+    | _ -> forward.mergeQualifiers(t2)
+    end;
+  
   
   local structName::String = closureStructName(params, res);
   local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
