@@ -85,6 +85,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   body.env = addEnv(params.defs, params.env);
   body.returnType = just(res.typerep);
   
+  production structName::String = closureStructName(params.typereps, res.typerep);
   production id::String = toString(genInt()); 
   production envStructName::String = s"_lambda_env_${id}_s";
   production funName::String = s"_lambda_fn_${id}";
@@ -123,18 +124,20 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
           $Expr{allocator(ableC_Expr {sizeof(struct $name{envStructName})}, top.location)};
         memcpy(_env_ptr, &_env, sizeof(struct $name{envStructName}));
         
-        $BaseTypeExpr{
+        typedef $BaseTypeExpr{
           closureTypeExpr(
             nilQualifier(),
             argTypesToParameters(params.typereps),
-            typeName(directTypeExpr(res.typerep), baseTypeExpr()))} _result;
-        _result._fn_name = $Expr{stringLiteral(s"\"${funName}\"", location=builtin)};
+            typeName(directTypeExpr(res.typerep), baseTypeExpr()))} _result_type;
+        
+        struct $name{structName} _result;
+        _result._fn_name = $stringLiteralExpr{funName};
         _result._env = (void*)_env_ptr;
         _result._fn = $name{funName};
         
         $Stmt{extraInit2};
         
-        _result;})
+        (_result_type)_result;})
     };
   
   forwards to

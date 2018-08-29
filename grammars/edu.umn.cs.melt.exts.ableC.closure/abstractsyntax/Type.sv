@@ -1,5 +1,7 @@
 grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 
+import edu:umn:cs:melt:ableC:abstractsyntax:overloadable;
+
 {-
  - closureTypeExpr translates to a global struct declaration (if needed) and a reference to this
  - struct.  closureType, when transformed back into a BaseTypeExpr, is simply a reference to this
@@ -19,7 +21,7 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
   res.env = addEnv(params.defs, top.env);
   
   local structName::String = closureStructName(params.typereps, res.typerep);
-  local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
+  local structRefId::String = closureStructRefId(params.typereps, res.typerep);
   
   local localErrors::[Message] = params.errors ++ res.errors;
   local fwrd::BaseTypeExpr =
@@ -28,120 +30,98 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
         maybeRefIdDecl(
           structRefId,
           ableC_Decl {
-            struct __attribute__((refId($stringLiteralExpr{structRefId}),
-                                  module("edu:umn:cs:melt:exts:ableC:closure:closure"))) $name{structName} {
+            struct __attribute__((refId($stringLiteralExpr{structRefId}))) $name{structName} {
               const char *_fn_name; // For debugging
               void *_env; // Pointer to generated struct containing env
-              $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*_fn)(void *env, $Parameters{params}); // First param is above env struct pointer
+              // Implementation function pointer
+              // First param is above env struct pointer
+              // Remaining params are params of the closure
+              $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*_fn)(void *env, $Parameters{params});
             };
           }),
         nilDecl()),
-      directTypeExpr(closureType(q, params.typereps, res.typerep)));
+      extTypeExpr(q, closureType(params.typereps, res.typerep)));
   
   forwards to if !null(localErrors) then errorTypeExpr(localErrors) else fwrd;
 }
 
 abstract production closureType
-top::Type ::= q::Qualifiers params::[Type] res::Type
+top::ExtType ::= params::[Type] res::Type
 {
   propagate substituted;
   
-  top.lpp = pp"${terminate(space(), q.pps)}closure<(${
+  top.pp = pp"closure<(${
     if null(params) then pp"void" else
       ppImplode(
         pp", ",
         zipWith(cat,
           map((.lpp), params),
           map((.rpp), params)))}) -> ${res.lpp}${res.rpp}>";
-  top.rpp = notext();
-  
-  top.withoutTypeQualifiers = closureType(nilQualifier(), params, res);
-  top.withoutExtensionQualifiers = closureType(filterExtensionQualifiers(q), params, res);
-  top.withTypeQualifiers =
-    closureType(foldQualifier(top.addedTypeQualifiers ++ q.qualifiers), params, res);
-  top.mergeQualifiers = \t2::Type ->
-    case t2 of
-      closureType(q2, params2, res2) ->
-        closureType(
-          unionQualifiers(top.qualifiers, q2.qualifiers),
-          zipWith(\ t1::Type t2::Type -> t1.mergeQualifiers(t2), params, params2),
-          res.mergeQualifiers(res2))
-    | _ -> forward.mergeQualifiers(t2)
-    end;
-  
   
   local structName::String = closureStructName(params, res);
-  local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
-  
+  local structRefId::String = closureStructRefId(params, res);
   local isErrorType::Boolean =
-    foldr(
-      \ a::Boolean b::Boolean -> a || b, false,
-      map(\ t::Type -> case t of errorType() -> true | _ -> false end, res :: params));
+    any(map(\ t::Type -> case t of errorType() -> true | _ -> false end, res :: params));
   
-  forwards to
+  top.host =
     if isErrorType
     then errorType()
-    else tagType(q, refIdTagType(structSEU(), structName, structRefId));
+    else tagType(top.givenQualifiers, refIdTagType(structSEU(), structName, structRefId));
+  top.mangledName = s"_closure_${implode("_", map((.mangledName), params))}_${res.mangledName}";
+  top.isEqualTo =
+    \ other::ExtType ->
+      case other of
+        closureType(otherParams, otherRes) ->
+          length(params) == length(otherParams) &&
+          all(zipWith(compatibleTypes(_, _, false, false), res :: params, otherRes :: otherParams))
+      | _ -> false
+      end;
+  
+  top.callProd = just(applyExpr(_, _, location=_));
+  top.callMemberProd = just(callMemberClosure(_, _, _, _, location=_));
 }
 
 function closureStructName
 String ::= params::[Type] res::Type
 {
-  return s"_closure_${implode("_", map((.mangledName), params))}_${res.mangledName}_s";
+  return closureType(params, res).mangledName ++ "_s";
 }
 
--- Check if a type is a closure in a non-interfering way
+function closureStructRefId
+String ::= params::[Type] res::Type
+{
+  return s"edu:umn:cs:melt:exts:ableC:closure:${closureStructName(params, res)}";
+}
+
+-- Check if a type is a closure
 function isClosureType
 Boolean ::= t::Type
 {
   return
     case t of
-      tagType(_, refIdTagType(_, _, refId)) ->
-        startsWith("edu:umn:cs:melt:exts:ableC:closure:", refId)
+      extType(_, closureType(_, _)) -> true
     | _ -> false
     end;
 }
 
--- Find the parameter types of a closure type in a non-interfering way
+-- Find the parameter types of a closure type
 function closureParamTypes
-[Type] ::= t::Type env::Decorated Env
+[Type] ::= t::Type
 {
-  local refId::String =
-    case t of
-      tagType(_, refIdTagType(_, _, refId)) -> refId
-    | _ -> ""
-    end;
-  local refIds::[RefIdItem] = lookupRefId(refId, env);
-  local valueItems::[ValueItem] = lookupValue("_fn", head(refIds).tagEnv);
-  local fnPtrType::Type = head(valueItems).typerep;
-
   return
-    case refIds, valueItems, fnPtrType of
-      [], _, _ -> []
-    | _, [], _ -> []
-    | _, _, pointerType(_, functionType(_, protoFunctionType(params, _), _)) -> tail(params)
-    | _, _, _ -> []
+    case t of
+      extType(_, closureType(paramTypes, _)) -> paramTypes
+    | _ -> []
     end;
 }
 
--- Find the result type of a closure type in a non-interfering way
+-- Find the result type of a closure type
 function closureResultType
-Type ::= t::Type env::Decorated Env
+Type ::= t::Type
 {
-  local refId::String =
-    case t of
-      tagType(_, refIdTagType(_, _, refId)) -> refId
-    | _ -> ""
-    end;
-  local refIds::[RefIdItem] = lookupRefId(refId, env);
-  local valueItems::[ValueItem] = lookupValue("_fn", head(refIds).tagEnv);
-  local fnPtrType::Type = head(valueItems).typerep;
-
   return
-    case refIds, valueItems, fnPtrType of
-      [], _, _ -> errorType()
-    | _, [], _ -> errorType()
-    | _, _, pointerType(_, functionType(res, _, _)) -> res
-    | _, _, _ -> errorType()
+    case t of
+      extType(_, closureType(_, resType)) -> resType
+    | _ -> errorType()
     end;
 }
