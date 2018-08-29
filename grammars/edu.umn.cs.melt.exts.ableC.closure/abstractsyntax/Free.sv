@@ -34,7 +34,15 @@ top::Expr ::= fn::Expr deallocate::Expr
   local paramTypes::[Type] = closureParamTypes(fn.typerep);
   local resultType::Type = closureResultType(fn.typerep);
   local structName::String = closureStructName(paramTypes, resultType);
-  local fwrd::Expr = ableC_Expr { $Expr{deallocate}(((struct $name{structName})$Expr{fn})._env) };
+  local fwrd::Expr =
+    injectGlobalDeclsExpr(
+      consDecl(
+        closureStructDecl(
+          argTypesToParameters(paramTypes),
+          typeName(directTypeExpr(resultType), baseTypeExpr())),
+        nilDecl()),
+      ableC_Expr { $Expr{deallocate}(((struct $name{structName})$Expr{fn}).env) },
+      location=builtin);
 
   forwards to mkErrorCheck(localErrors, fwrd);
 }

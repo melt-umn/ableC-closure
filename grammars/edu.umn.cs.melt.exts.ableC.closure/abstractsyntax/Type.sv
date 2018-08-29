@@ -6,9 +6,8 @@ import edu:umn:cs:melt:ableC:abstractsyntax:overloadable;
  - closureTypeExpr translates to a global struct declaration (if needed) and a reference to this
  - struct.  closureType, when transformed back into a BaseTypeExpr, is simply a reference to this
  - struct.  An invariant is that for any closureType that appears anywhere, a corresponding
- - closureTypeExpr must have existed somewhere that produced this type in the first place, and thus
- - provided the relevant struct definition.  Note that this closureTypeExpr may be part of the
- - forward for something, as in the case of lambdaExpr.
+ - closureStructDecl must have existed somewhere (as part of a the forward for another construct)
+ - to provide the relevant struct definition.  
  -}
 
 abstract production closureTypeExpr
@@ -20,29 +19,38 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
   
   res.env = addEnv(params.defs, top.env);
   
-  local structName::String = closureStructName(params.typereps, res.typerep);
-  local structRefId::String = closureStructRefId(params.typereps, res.typerep);
-  
   local localErrors::[Message] = params.errors ++ res.errors;
   local fwrd::BaseTypeExpr =
     injectGlobalDeclsTypeExpr(
-      consDecl(
-        maybeRefIdDecl(
-          structRefId,
-          ableC_Decl {
-            struct __attribute__((refId($stringLiteralExpr{structRefId}))) $name{structName} {
-              const char *_fn_name; // For debugging
-              void *_env; // Pointer to generated struct containing env
-              // Implementation function pointer
-              // First param is above env struct pointer
-              // Remaining params are params of the closure
-              $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*_fn)(void *env, $Parameters{params});
-            };
-          }),
-        nilDecl()),
+      consDecl(closureStructDecl(params, res), nilDecl()),
       extTypeExpr(q, closureType(params.typereps, res.typerep)));
   
   forwards to if !null(localErrors) then errorTypeExpr(localErrors) else fwrd;
+}
+
+abstract production closureStructDecl
+top::Decl ::= params::Parameters res::TypeName
+{
+  propagate substituted;
+  top.pp = pp"closureStructDecl<(${
+    if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
+  
+  local structName::String = closureStructName(params.typereps, res.typerep);
+  local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
+  
+  forwards to
+    maybeRefIdDecl(
+      structRefId,
+      ableC_Decl {
+        struct __attribute__((refId($stringLiteralExpr{structRefId}))) $name{structName} {
+          const char *fn_name; // For debugging
+          void *env; // Pointer to generated struct containing env
+          // Implementation function pointer
+          // First param is above env struct pointer
+          // Remaining params are params of the closure
+          $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*fn)(void *env, $Parameters{params});
+         };
+      });
 }
 
 abstract production closureType
@@ -59,7 +67,7 @@ top::ExtType ::= params::[Type] res::Type
           map((.rpp), params)))}) -> ${res.lpp}${res.rpp}>";
   
   local structName::String = closureStructName(params, res);
-  local structRefId::String = closureStructRefId(params, res);
+  local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
   local isErrorType::Boolean =
     any(map(\ t::Type -> case t of errorType() -> true | _ -> false end, res :: params));
   
@@ -85,12 +93,6 @@ function closureStructName
 String ::= params::[Type] res::Type
 {
   return closureType(params, res).mangledName ++ "_s";
-}
-
-function closureStructRefId
-String ::= params::[Type] res::Type
-{
-  return s"edu:umn:cs:melt:exts:ableC:closure:${closureStructName(params, res)}";
 }
 
 -- Check if a type is a closure

@@ -22,14 +22,17 @@ top::Expr ::= fn::Expr args::Exprs
   
   local structName::String = closureStructName(paramTypes, resultType);
   local fwrd::Expr =
-    ableC_Expr {
-      ({$BaseTypeExpr{
-          closureTypeExpr(
-            nilQualifier(),
-            argTypesToParameters(args.expectedTypes),
-            typeName(directTypeExpr(resultType), baseTypeExpr()))} _tmp_closure = $Expr{fn};
-        ((struct $name{structName})_tmp_closure)._fn(((struct $name{structName})_tmp_closure)._env, $Exprs{args});})
-    };
+    injectGlobalDeclsExpr(
+      consDecl(
+        closureStructDecl(
+          argTypesToParameters(paramTypes),
+          typeName(directTypeExpr(resultType), baseTypeExpr())),
+        nilDecl()),
+      ableC_Expr {
+        ({struct $name{structName} _tmp_closure = (struct $name{structName})$Expr{fn};
+          _tmp_closure.fn(_tmp_closure.env, $Exprs{args});})
+      },
+      location=builtin);
 
   forwards to mkErrorCheck(localErrors, fwrd);
 }

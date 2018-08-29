@@ -22,7 +22,7 @@ top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res:
     lambdaTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, 
-      closureTypeExpr, nullStmt(), nullStmt(),
+      closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
 
@@ -36,12 +36,13 @@ top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res:
     lambdaStmtTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, body,
-      closureTypeExpr, nullStmt(), nullStmt(),
+      closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
 
 abstract production lambdaTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::Expr
+  closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
@@ -59,14 +60,15 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
         builtinType(_, voidType()) -> exprStmt(res)
       | _ -> returnStmt(justExpr(res))
       end,
-      closureTypeExpr, extraInit1, extraInit2,
+      closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
       location=top.location);
   
   forwards to mkErrorCheck(localErrors, fwrd);
 }
 
 abstract production lambdaStmtTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::TypeName body::Stmt
+  closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
@@ -85,12 +87,17 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   body.env = addEnv(params.defs, params.env);
   body.returnType = just(res.typerep);
   
-  production structName::String = closureStructName(params.typereps, res.typerep);
+  production closureTypeStructName::String = closureStructName(params.typereps, res.typerep);
   production id::String = toString(genInt()); 
   production envStructName::String = s"_lambda_env_${id}_s";
   production funName::String = s"_lambda_fn_${id}";
   
   captured.structNameIn = envStructName;
+  
+  local closureTypeStructDcl::Decl =
+    closureStructDecl(
+      argTypesToParameters(params.typereps),
+      typeName(directTypeExpr(res.typerep), baseTypeExpr()));
   
   local envStructDcl::Decl =
     typeExprDecl(
@@ -112,7 +119,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       }
     };
   
-  local globalDecls::Decls = foldDecl([envStructDcl, funDcl]);
+  local globalDecls::Decls = foldDecl([closureTypeStructDcl, envStructDcl, funDcl]);
   
   local fwrd::Expr =
     ableC_Expr {
@@ -124,20 +131,14 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
           $Expr{allocator(ableC_Expr {sizeof(struct $name{envStructName})}, top.location)};
         memcpy(_env_ptr, &_env, sizeof(struct $name{envStructName}));
         
-        typedef $BaseTypeExpr{
-          closureTypeExpr(
-            nilQualifier(),
-            argTypesToParameters(params.typereps),
-            typeName(directTypeExpr(res.typerep), baseTypeExpr()))} _result_type;
-        
-        struct $name{structName} _result;
-        _result._fn_name = $stringLiteralExpr{funName};
-        _result._env = (void*)_env_ptr;
-        _result._fn = $name{funName};
+        struct $name{closureTypeStructName} _result;
+        _result.fn_name = $stringLiteralExpr{funName};
+        _result.env = (void*)_env_ptr;
+        _result.fn = $name{funName};
         
         $Stmt{extraInit2};
         
-        (_result_type)_result;})
+        ($directTypeExpr{extType(nilQualifier(), closureType(params.typereps, res.typerep))})_result;})
     };
   
   forwards to
