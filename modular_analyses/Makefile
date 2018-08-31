@@ -20,12 +20,12 @@ mwda: mwda.test
 
 mda.test: $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MDA_ARTIFACT)/*.sv)
-	silver --dont-translate $(SVFLAGS) $(MDA_ARTIFACT)
+	silver-ableC --dont-translate $(SVFLAGS) $(MDA_ARTIFACT)
 	touch $@
 
 mwda.test: $(GRAMMAR_SOURCES)
 	touch $(wildcard $(MWDA_ARTIFACT)/*.sv)
-	silver --dont-translate $(SVFLAGS) --clean --warn-all --warn-error $(MWDA_ARTIFACT)
+	silver-ableC --dont-translate $(SVFLAGS) --clean --warn-all --warn-error $(MWDA_ARTIFACT)
 	touch $@
 
 clean:
