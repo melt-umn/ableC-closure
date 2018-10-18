@@ -17,6 +17,7 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
   top.pp = pp"${terminate(space(), q.pps)}closure<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>";
   
+  params.position = 0;
   res.env = addEnv(params.defs, top.env);
   
   local localErrors::[Message] = params.errors ++ res.errors;
@@ -34,6 +35,8 @@ top::Decl ::= params::Parameters res::TypeName
   propagate substituted;
   top.pp = pp"closureStructDecl<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
+  
+  params.position = 0;
   
   local structName::String = closureStructName(params.typereps, res.typerep);
   local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";

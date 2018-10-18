@@ -49,6 +49,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local localErrors::[Message] = res.errors;
   params.env = openScopeEnv(top.env);
+  params.position = 0;
   res.env = addEnv(params.defs, params.env);
   res.returnType = just(res.typerep);
   
@@ -84,6 +85,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   res.env = top.env;
   res.returnType = nothing();
   params.env = openScopeEnv(addEnv(res.defs, res.env));
+  params.position = 0;
   body.env = addEnv(params.defs, params.env);
   body.returnType = just(res.typerep);
   
