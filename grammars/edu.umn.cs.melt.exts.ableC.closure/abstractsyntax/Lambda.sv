@@ -50,7 +50,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   local localErrors::[Message] = res.errors;
   params.env = openScopeEnv(top.env);
   params.position = 0;
-  res.env = addEnv(params.defs, params.env);
+  res.env = addEnv(params.defs ++ params.functionDefs, params.env);
   res.returnType = just(res.typerep);
   
   local fwrd::Expr =
@@ -79,14 +79,14 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     captured.errors ++ params.errors ++ res.errors ++ body.errors;
   
   local paramNames::[Name] =
-    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
+    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
   captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
   
   res.env = top.env;
   res.returnType = nothing();
   params.env = openScopeEnv(addEnv(res.defs, res.env));
   params.position = 0;
-  body.env = addEnv(params.defs, params.env);
+  body.env = addEnv(params.defs ++ params.functionDefs, params.env);
   body.returnType = just(res.typerep);
   
   production closureTypeStructName::String = closureStructName(params.typereps, res.typerep);
