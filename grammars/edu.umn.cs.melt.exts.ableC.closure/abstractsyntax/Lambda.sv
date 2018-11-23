@@ -88,6 +88,8 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   params.position = 0;
   body.env = addEnv(params.defs ++ params.functionDefs, params.env);
   body.returnType = just(res.typerep);
+  captured.env =
+    addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
   
   production closureTypeStructName::String = closureStructName(params.typereps, res.typerep);
   production id::String = toString(genInt()); 
@@ -201,7 +203,13 @@ abstract production freeVariablesCaptureList
 top::CaptureList ::=
 {
   top.pp = pp"...";
-  forwards to foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
+  forwards to
+    foldr(
+      consCaptureList, nilCaptureList(),
+      filter(
+        -- Only capture values with a non-global definition
+        \ n::Name -> !null(lookupValue(n.name, nonGlobalEnv(top.env))),
+        nubBy(nameEq, top.freeVariablesIn)));
 }
 
 abstract production consCaptureList
