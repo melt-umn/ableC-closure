@@ -50,7 +50,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   local localErrors::[Message] = res.errors;
   params.env = openScopeEnv(top.env);
   params.position = 0;
-  res.env = addEnv(params.defs ++ params.functionDefs, params.env);
+  res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
   res.returnType = just(res.typerep);
   
   local fwrd::Expr =
@@ -58,7 +58,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       allocator, captured, params,
       typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
       case res.typerep of
-        builtinType(_, voidType()) -> exprStmt(res)
+        builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
       | _ -> returnStmt(justExpr(res))
       end,
       closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
@@ -82,11 +82,10 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
   captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
   
-  res.env = top.env;
   res.returnType = nothing();
   params.env = openScopeEnv(addEnv(res.defs, res.env));
   params.position = 0;
-  body.env = addEnv(params.defs ++ params.functionDefs, params.env);
+  body.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
   body.returnType = just(res.typerep);
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
@@ -119,7 +118,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{params}) {
         struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
         $Stmt{captured.envCopyOutTrans}
-        $Stmt{body}
+        $Stmt{decStmt(body)}
       }
     };
   
@@ -203,13 +202,7 @@ abstract production freeVariablesCaptureList
 top::CaptureList ::=
 {
   top.pp = pp"...";
-  forwards to
-    foldr(
-      consCaptureList, nilCaptureList(),
-      filter(
-        -- Only capture values with a non-global definition
-        \ n::Name -> !null(lookupValue(n.name, nonGlobalEnv(top.env))),
-        nubBy(nameEq, top.freeVariablesIn)));
+  forwards to foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
 }
 
 abstract production consCaptureList
@@ -276,6 +269,8 @@ top::CaptureList ::=
   top.envCopyOutTrans = nullStmt();
 }
 
+-- Convert VLAs to incomplete/constant-length arrays within the struct definition
+-- where the VLA size arguments aren't visible.
 autocopy attribute inArrayType::Boolean occurs on Type, ArrayType;
 synthesized attribute variableArrayConversion<a>::a;
 attribute variableArrayConversion<Type> occurs on Type;
