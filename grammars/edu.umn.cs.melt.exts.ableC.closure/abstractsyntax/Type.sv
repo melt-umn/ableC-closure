@@ -59,7 +59,7 @@ top::Decl ::= params::Parameters res::TypeName
 abstract production closureType
 top::ExtType ::= params::[Type] res::Type
 {
-  propagate substituted;
+  propagate substituted, canonicalType;
   
   top.pp = pp"closure<(${
     if null(params) then pp"void" else
