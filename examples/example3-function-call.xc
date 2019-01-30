@@ -8,7 +8,7 @@ int f(int a) {
 }
 
 int main (int argc, char **argv) {
-  closure<(int) -> int> fun = lambda (int x) -> (int) {
+  closure<(int) -> int> fun = lambda (int x) -> int {
     printf("%d\n", x);
     return f(x);
   };
