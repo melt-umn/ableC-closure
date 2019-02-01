@@ -85,7 +85,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   res.returnType = nothing();
   params.env = openScopeEnv(addEnv(res.defs, res.env));
   params.position = 0;
-  body.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
+  body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(params.env));
   body.returnType = just(res.typerep);
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
