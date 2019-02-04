@@ -89,6 +89,11 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   body.returnType = just(res.typerep);
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
+  captured.currentFunctionNameIn =
+    case lookupMisc("this_func", top.env) of
+    | currentFunctionItem(n, _) :: _ -> n.name
+    | _ -> ""
+    end;
   
   production closureTypeStructName::String = closureStructName(params.typereps, res.typerep);
   production id::String = toString(genInt()); 
@@ -195,8 +200,9 @@ synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
 autocopy attribute structNameIn::String;
 autocopy attribute freeVariablesIn::[Name];
+autocopy attribute currentFunctionNameIn::String;
 
-nonterminal CaptureList with env, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
+nonterminal CaptureList with env, structNameIn, freeVariablesIn, currentFunctionNameIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production freeVariablesCaptureList
 top::CaptureList ::=
@@ -229,7 +235,10 @@ top::CaptureList ::= n::Name rest::CaptureList
   
   -- If true, then this variable is in scope for the lifted function and doesn't need to be captured
   production isGlobal::Boolean =
-    !null(lookupValue(n.name, top.env)) && null(lookupValue(n.name, nonGlobalEnv(top.env)));
+    !null(lookupValue(n.name, top.env)) &&
+    null(lookupValue(n.name, nonGlobalEnv(top.env)))
+    -- The current top-level function still needs to be captured
+    && n.name != top.currentFunctionNameIn;
   
   top.envStructTrans =
     if isGlobal then rest.envStructTrans else
