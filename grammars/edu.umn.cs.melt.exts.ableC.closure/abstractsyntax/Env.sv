@@ -11,7 +11,7 @@ Decorated Env ::= env::Decorated Env
       map(
         \ n::String -> valueDef(n, captureValueItem(head(lookupValue(n, env)))),
         flattenScope(init(env.values))),
-      openScopeEnv(env));
+      openScopeEnv(globalEnv(env)));
 }
 
 -- Generate the list of all names in scopes
