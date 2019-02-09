@@ -2,7 +2,7 @@
 #include <gc.h>
 
 int foo() {
-  lambda (int x) -> foo();
+  lambda (int x) -> (foo());
   return 7;
 }
 
