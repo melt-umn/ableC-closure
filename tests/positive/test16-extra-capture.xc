@@ -7,7 +7,7 @@ int main() {
   int y = 2;
   int z = 3;
   
-  closure<(int) -> int> foo = lambda [y, z, ...](int i) -> (i + x + y);
+  closure<(int) -> int> foo = lambda [y, z, ...](int i) -> i + x + y;
 
   int res = foo(7);
 

@@ -7,7 +7,7 @@ int main (int argc, char **argv) {
   int x = 0;
   int *xp = &x;
   
-  closure<() -> void> fn = lambda () -> (void) {
+  closure<() -> void> fn = lambda () -> void {
     (*xp)++;
   };
 

@@ -6,7 +6,7 @@
 int main (int argc, char **argv) {
   closure<((int) -> int) -> (int) -> int> repeat = 
     lambda [](closure<(int) -> int> f) ->
-                (lambda [f](int x) -> (f(f(x))));
+                lambda [f](int x) -> f(f(x));
 
   closure<(int) -> int> inc = lambda [](int x) -> (x + 1);
 
