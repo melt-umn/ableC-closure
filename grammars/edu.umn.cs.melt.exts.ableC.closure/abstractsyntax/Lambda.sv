@@ -30,7 +30,7 @@ abstract production lambdaStmtExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::TypeName body::Stmt
 {
   propagate substituted;
-  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
   
   forwards to
     lambdaStmtTransExpr(
@@ -59,7 +59,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
       case res.typerep of
         builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
-      | _ -> returnStmt(justExpr(res))
+      | _ -> returnStmt(justExpr(decExpr(res, location=builtin)))
       end,
       closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
       location=top.location);
@@ -72,7 +72,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
-  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
   
   local localErrors::[Message] =
     checkMemcpyErrors(top.location, top.env) ++
@@ -260,7 +260,7 @@ top::CaptureList ::= n::Name rest::CaptureList
   top.envCopyOutTrans =
     if isGlobal then rest.envCopyOutTrans else
       ableC_Stmt {
-        const $directTypeExpr{varType} $Name{n} = _env.$Name{n};
+        const $directTypeExpr{varType.withoutTypeQualifiers} $Name{n} = _env.$Name{n};
         $Stmt{rest.envCopyOutTrans}
       };
   
