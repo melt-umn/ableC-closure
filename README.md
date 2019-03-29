@@ -43,4 +43,3 @@ The purpose of this extension is
 
 1. To allow 'true' functional programming in C, there are some tasks for which passing a closure is much better than passing a function pointer.  
 2. To provide an easy way of passing functions which can be used easily by other extensions without needing extra parameters to capture local scope. 
-

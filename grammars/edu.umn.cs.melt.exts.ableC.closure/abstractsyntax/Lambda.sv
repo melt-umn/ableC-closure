@@ -22,7 +22,7 @@ top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res:
     lambdaTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, 
-      closureTypeExpr, nullStmt(), nullStmt(),
+      closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
 
@@ -30,25 +30,27 @@ abstract production lambdaStmtExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::TypeName body::Stmt
 {
   propagate substituted;
-  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
   
   forwards to
     lambdaStmtTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, body,
-      closureTypeExpr, nullStmt(), nullStmt(),
+      closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
 
 abstract production lambdaTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::Expr
+  closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   local localErrors::[Message] = res.errors;
   params.env = openScopeEnv(top.env);
-  res.env = addEnv(params.defs, params.env);
+  params.position = 0;
+  res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
   res.returnType = just(res.typerep);
   
   local fwrd::Expr =
@@ -56,40 +58,54 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       allocator, captured, params,
       typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
       case res.typerep of
-        builtinType(_, voidType()) -> exprStmt(res)
-      | _ -> returnStmt(justExpr(res))
+        builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
+      | _ -> returnStmt(justExpr(decExpr(res, location=builtin)))
       end,
-      closureTypeExpr, extraInit1, extraInit2,
+      closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
       location=top.location);
   
   forwards to mkErrorCheck(localErrors, fwrd);
 }
 
 abstract production lambdaStmtTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::TypeName body::Stmt
+  closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
   propagate substituted;
-  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
   
   local localErrors::[Message] =
     checkMemcpyErrors(top.location, top.env) ++
     captured.errors ++ params.errors ++ res.errors ++ body.errors;
   
   local paramNames::[Name] =
-    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
+    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
   captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
   
-  res.env = top.env;
   res.returnType = nothing();
   params.env = openScopeEnv(addEnv(res.defs, res.env));
-  body.env = addEnv(params.defs, params.env);
+  params.position = 0;
+  body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(params.env));
   body.returnType = just(res.typerep);
+  captured.env =
+    addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
+  captured.currentFunctionNameIn =
+    case lookupMisc("this_func", top.env) of
+    | currentFunctionItem(n, _) :: _ -> n.name
+    | _ -> ""
+    end;
   
+  production closureTypeStructName::String = closureStructName(params.typereps, res.typerep);
   production id::String = toString(genInt()); 
   production envStructName::String = s"_lambda_env_${id}_s";
   production funName::String = s"_lambda_fn_${id}";
   
   captured.structNameIn = envStructName;
+  
+  local closureTypeStructDcl::Decl =
+    closureStructDecl(
+      argTypesToParameters(params.typereps),
+      typeName(directTypeExpr(res.typerep), baseTypeExpr()));
   
   local envStructDcl::Decl =
     typeExprDecl(
@@ -107,11 +123,11 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{params}) {
         struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
         $Stmt{captured.envCopyOutTrans}
-        $Stmt{body}
+        $Stmt{decStmt(body)}
       }
     };
   
-  local globalDecls::Decls = foldDecl([envStructDcl, funDcl]);
+  local globalDecls::Decls = foldDecl([closureTypeStructDcl, envStructDcl, funDcl]);
   
   local fwrd::Expr =
     ableC_Expr {
@@ -123,18 +139,14 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
           $Expr{allocator(ableC_Expr {sizeof(struct $name{envStructName})}, top.location)};
         memcpy(_env_ptr, &_env, sizeof(struct $name{envStructName}));
         
-        $BaseTypeExpr{
-          closureTypeExpr(
-            nilQualifier(),
-            argTypesToParameters(params.typereps),
-            typeName(directTypeExpr(res.typerep), baseTypeExpr()))} _result;
-        _result._fn_name = $Expr{stringLiteral(s"\"${funName}\"", location=builtin)};
-        _result._env = (void*)_env_ptr;
-        _result._fn = $name{funName};
+        struct $name{closureTypeStructName} _result;
+        _result.fn_name = $stringLiteralExpr{funName};
+        _result.env = (void*)_env_ptr;
+        _result.fn = $name{funName};
         
         $Stmt{extraInit2};
         
-        _result;})
+        ($directTypeExpr{extType(nilQualifier(), closureType(params.typereps, res.typerep))})_result;})
     };
   
   forwards to
@@ -188,8 +200,9 @@ synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
 autocopy attribute structNameIn::String;
 autocopy attribute freeVariablesIn::[Name];
+autocopy attribute currentFunctionNameIn::String;
 
-nonterminal CaptureList with env, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
+nonterminal CaptureList with env, structNameIn, freeVariablesIn, currentFunctionNameIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production freeVariablesCaptureList
 top::CaptureList ::=
@@ -222,7 +235,10 @@ top::CaptureList ::= n::Name rest::CaptureList
   
   -- If true, then this variable is in scope for the lifted function and doesn't need to be captured
   production isGlobal::Boolean =
-    !null(lookupValue(n.name, top.env)) && null(lookupValue(n.name, nonGlobalEnv(top.env)));
+    !null(lookupValue(n.name, top.env)) &&
+    null(lookupValue(n.name, nonGlobalEnv(top.env)))
+    -- The current top-level function still needs to be captured
+    && n.name != top.currentFunctionNameIn;
   
   top.envStructTrans =
     if isGlobal then rest.envStructTrans else
@@ -244,7 +260,7 @@ top::CaptureList ::= n::Name rest::CaptureList
   top.envCopyOutTrans =
     if isGlobal then rest.envCopyOutTrans else
       ableC_Stmt {
-        const $directTypeExpr{varType} $Name{n} = _env.$Name{n};
+        const $directTypeExpr{varType.withoutTypeQualifiers} $Name{n} = _env.$Name{n};
         $Stmt{rest.envCopyOutTrans}
       };
   
@@ -262,6 +278,8 @@ top::CaptureList ::=
   top.envCopyOutTrans = nullStmt();
 }
 
+-- Convert VLAs to incomplete/constant-length arrays within the struct definition
+-- where the VLA size arguments aren't visible.
 autocopy attribute inArrayType::Boolean occurs on Type, ArrayType;
 synthesized attribute variableArrayConversion<a>::a;
 attribute variableArrayConversion<Type> occurs on Type;

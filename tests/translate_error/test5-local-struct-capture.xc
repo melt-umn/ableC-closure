@@ -9,7 +9,7 @@ int main() {
   for (int i = 0; i < 5; i++) {
     data.arr[i] = i * 2;
   }
-  closure<(int) -> int> foo = lambda (int i) -> (data.arr[i % 5]);
+  closure<(int) -> int> foo = lambda (int i) -> data.arr[i % 5];
 
   for (int i = 0; i < 10; i++) {
     unsigned result = foo(i);

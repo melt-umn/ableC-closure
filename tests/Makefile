@@ -30,6 +30,8 @@ TESTS=$(XC_FILES:.xc=.test)
 
 # All directories contining extension header files that may be included
 XC_INCLUDE_DIRS=$(wildcard $(EXTS_BASE)/*/include)
+# All header files that may be included, to be included as dependencies
+XC_INCLUDE_SOURCES=$(foreach dir,$(XC_INCLUDE_DIRS),$(wildcard $(dir)/*.*h))
 # Flags passed to ableC including the appropriate directories
 override XCFLAGS+=$(addprefix -I,$(XC_INCLUDE_DIRS))
 # Flags passed to Java when invoking ableC
@@ -63,7 +65,7 @@ $(ABLEC_JAR): $(GRAMMAR_SOURCES)
 	touch $(wildcard $(ARTIFACT)/*.sv)
 	silver-ableC -o $(ABLEC_JAR) $(SVFLAGS) $(ARTIFACT)
 
-%.c: %.xc $(ABLEC_JAR)
+%.c: %.xc $(XC_INCLUDE_SOURCES) $(ABLEC_JAR)
 	java $(JAVAFLAGS) -jar $(ABLEC_JAR) $< $(XCFLAGS)
 
 %.out: %.o $(SRC_SOURCES) | libs

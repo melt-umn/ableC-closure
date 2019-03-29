@@ -14,18 +14,20 @@ marking terminal Lambda_t 'lambda' lexer classes {Ckeyword};
 
 terminal Allocate_t 'allocate';
 
-concrete productions top::PostfixExpr_c
-| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::Expr_c ')'
+-- Productions on Expr_c here since we we want this to have the lowest possible precedence that can
+-- still be used as a function argument
+concrete productions top::AssignExpr_c
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' DisallowSEUDecl_t res::AssignExpr_c AllowSEUDecl_t
     { top.ast = lambdaExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, location=top.location); }
-| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' '(' res::Expr_c ')'
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' DisallowSEUDecl_t res::AssignExpr_c AllowSEUDecl_t
     { top.ast = lambdaExpr(allocator.ast, captured.ast, nilParameters(), res.ast, location=top.location); }
-| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::TypeName_c ')' '{' body::BlockItemList_c '}'
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' body::BlockItemList_c '}'
     { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, foldStmt(body.ast), location=top.location); }
-| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' '(' res::TypeName_c ')' '{' body::BlockItemList_c '}'
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' body::BlockItemList_c '}'
     { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, foldStmt(body.ast), location=top.location); }
-| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' '(' res::TypeName_c ')' '{' '}'
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' '}'
     { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, nullStmt(), location=top.location); }
-| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' '(' res::TypeName_c ')' '{' '}'
+| 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' '}'
     { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, nullStmt(), location=top.location); }
 
 nonterminal MaybeAllocator_c with ast<MaybeExpr>, location;
