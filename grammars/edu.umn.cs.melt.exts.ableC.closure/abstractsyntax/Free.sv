@@ -3,7 +3,6 @@ grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 abstract production callMemberClosure
 top::Expr ::= lhs::Expr deref::Boolean rhs::Name a::Exprs
 {
-  propagate substituted;
   
   forwards to
     case rhs.name, a of
@@ -16,7 +15,6 @@ top::Expr ::= lhs::Expr deref::Boolean rhs::Name a::Exprs
 abstract production freeExpr
 top::Expr ::= fn::Expr deallocate::Expr
 {
-  propagate substituted;
   top.pp = pp"${fn.pp}.free(${deallocate.pp})";
   
   local deallocateExpectedType::Type =
