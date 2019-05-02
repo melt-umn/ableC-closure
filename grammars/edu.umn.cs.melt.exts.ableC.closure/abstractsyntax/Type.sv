@@ -13,7 +13,6 @@ import edu:umn:cs:melt:ableC:abstractsyntax:overloadable;
 abstract production closureTypeExpr
 top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
 {
-  propagate substituted;
   top.pp = pp"${terminate(space(), q.pps)}closure<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>";
   
@@ -32,7 +31,6 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
 abstract production closureStructDecl
 top::Decl ::= params::Parameters res::TypeName
 {
-  propagate substituted;
   top.pp = pp"closureStructDecl<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
   
@@ -59,7 +57,7 @@ top::Decl ::= params::Parameters res::TypeName
 abstract production closureType
 top::ExtType ::= params::[Type] res::Type
 {
-  propagate substituted, canonicalType;
+  propagate canonicalType;
   
   top.pp = pp"closure<(${
     if null(params) then pp"void" else

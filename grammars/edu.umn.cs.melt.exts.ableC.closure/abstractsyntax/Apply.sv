@@ -3,7 +3,6 @@ grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 abstract production applyExpr
 top::Expr ::= fn::Expr args::Exprs
 {
-  propagate substituted;
   top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
   
   local localErrors :: [Message] =
