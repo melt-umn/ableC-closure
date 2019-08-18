@@ -14,24 +14,35 @@ top::Expr ::= fn::Expr args::Exprs
   local paramTypes::[Type] = closureParamTypes(fn.typerep);
   local resultType::Type = closureResultType(fn.typerep);
   
+  args.env = addEnv(fn.defs, fn.env);
   args.argumentPosition = 1;
   args.callExpr = fn;
   args.callVariadic = false;
   args.expectedTypes = paramTypes;
   
   local structName::String = closureStructName(paramTypes, resultType);
+  -- Workaround to ensure fn and args get the proper environment if they declare the struct
+  local initialDecls::Decl =
+    decls(
+      ableC_Decls {
+        $Decl{
+          injectGlobalDeclsDecl(
+            consDecl(
+              closureStructDecl(
+                argTypesToParameters(paramTypes),
+                typeName(directTypeExpr(resultType), baseTypeExpr())),
+            nilDecl()))}
+        struct $name{structName} _tmp_closure =
+          (struct $name{structName})$Expr{decExpr(fn, location=fn.location)};
+      });
+  initialDecls.env = addEnv(args.defs, args.env);
+  initialDecls.isTopLevel = false;
+  initialDecls.returnType = nothing();
   local fwrd::Expr =
-    injectGlobalDeclsExpr(
-      consDecl(
-        closureStructDecl(
-          argTypesToParameters(paramTypes),
-          typeName(directTypeExpr(resultType), baseTypeExpr())),
-        nilDecl()),
-      ableC_Expr {
-        ({struct $name{structName} _tmp_closure = (struct $name{structName})$Expr{fn};
-          _tmp_closure.fn(_tmp_closure.env, $Exprs{args});})
-      },
-      location=builtin);
+    ableC_Expr {
+      ({$Decl{decDecl(initialDecls)}
+        _tmp_closure.fn(_tmp_closure.env, $Exprs{decExprs(args)});})
+    };
 
   forwards to mkErrorCheck(localErrors, fwrd);
 }
