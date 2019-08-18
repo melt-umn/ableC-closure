@@ -21,6 +21,7 @@ top::Expr ::= fn::Expr args::Exprs
   args.expectedTypes = paramTypes;
   
   local structName::String = closureStructName(paramTypes, resultType);
+  local tmpName::String = "_tmp_closure_" ++ toString(genInt());
   -- Workaround to ensure fn and args get the proper environment if they declare the struct
   local initialDecls::Decl =
     decls(
@@ -32,7 +33,7 @@ top::Expr ::= fn::Expr args::Exprs
                 argTypesToParameters(paramTypes),
                 typeName(directTypeExpr(resultType), baseTypeExpr())),
             nilDecl()))}
-        struct $name{structName} _tmp_closure =
+        struct $name{structName} $name{tmpName} =
           (struct $name{structName})$Expr{decExpr(fn, location=fn.location)};
       });
   initialDecls.env = addEnv(args.defs, args.env);
@@ -41,7 +42,7 @@ top::Expr ::= fn::Expr args::Exprs
   local fwrd::Expr =
     ableC_Expr {
       ({$Decl{decDecl(initialDecls)}
-        _tmp_closure.fn(_tmp_closure.env, $Exprs{decExprs(args)});})
+        $name{tmpName}.fn($name{tmpName}.env, $Exprs{decExprs(args)});})
     };
 
   forwards to mkErrorCheck(localErrors, fwrd);
