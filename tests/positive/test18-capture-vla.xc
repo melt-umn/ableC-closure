@@ -12,7 +12,7 @@ int main() {
       }
     }
   }
-  closure<(int) -> int> foo = lambda (int i) -> (data[i % 3][i % y][i % 5]);
+  closure<(int) -> int> foo = lambda (int i) -> data[i % 3][i % y][i % 5];
 
   for (int i = 0; i < x * y * z; i++) {
     unsigned result = foo(i);

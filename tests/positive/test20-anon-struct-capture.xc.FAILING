@@ -9,7 +9,7 @@ typedef struct {
 int main() {
   ia5_t data = {{5, 4, 3, 2, 1}}, *p_data = &data;
   
-  closure<(int) -> int> foo = lambda (int i) -> (p_data->arr[i]);
+  closure<(int) -> int> foo = lambda (int i) -> p_data->arr[i];
 
   int res = foo(2);
 
