@@ -3,14 +3,14 @@ grammar edu:umn:cs:melt:exts:ableC:closure:concretesyntax:typeExpr;
 imports edu:umn:cs:melt:ableC:concretesyntax;
 imports silver:langutil only ast;
 
-imports edu:umn:cs:melt:ableC:abstractsyntax:host;
+imports edu:umn:cs:melt:ableC:abstractsyntax:host hiding givenQualifiers;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 --imports edu:umn:cs:melt:ableC:abstractsyntax:debug;
 
 import edu:umn:cs:melt:exts:ableC:closure;
 
-marking terminal Closure_t 'closure' lexer classes {Ckeyword};
+marking terminal Closure_t 'closure' lexer classes {Ctype, Ckeyword};
 
 concrete productions top::TypeSpecifier_c
 | 'closure' '<' te::ClosureTypeExpr_c '>'
@@ -22,10 +22,10 @@ nonterminal ClosureTypeExpr_c with ast<BaseTypeExpr>, givenQualifiers;
 
 concrete productions top::ClosureTypeExpr_c
 | '(' param::ClosureTypeExpr_c ')' '->' ret::TypeName_c
-    { top.ast = closureTypeExpr(top.givenQualifiers, consParameters(parameterDecl([], param.ast, baseTypeExpr(), nothingName(), nilAttribute()), nilParameters()), ret.ast);
+    { top.ast = closureTypeExpr(top.givenQualifiers, consParameters(parameterDecl(nilStorageClass(), param.ast, baseTypeExpr(), nothingName(), nilAttribute()), nilParameters()), ret.ast);
       param.givenQualifiers = nilQualifier(); }
 | '(' param::ClosureTypeExpr_c ')' '->' rest::ClosureTypeExpr_c
-    { top.ast = closureTypeExpr(top.givenQualifiers, consParameters(parameterDecl([], param.ast, baseTypeExpr(), nothingName(), nilAttribute()), nilParameters()), typeName(rest.ast, baseTypeExpr()));
+    { top.ast = closureTypeExpr(top.givenQualifiers, consParameters(parameterDecl(nilStorageClass(), param.ast, baseTypeExpr(), nothingName(), nilAttribute()), nilParameters()), typeName(rest.ast, baseTypeExpr()));
       param.givenQualifiers = nilQualifier();
       rest.givenQualifiers = nilQualifier(); }
 | '(' params::ClosureParameterList_c ')' '->' rest::ClosureTypeExpr_c

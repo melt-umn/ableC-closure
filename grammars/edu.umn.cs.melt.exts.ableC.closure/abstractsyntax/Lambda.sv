@@ -5,8 +5,6 @@ imports silver:langutil:pp;
 
 imports edu:umn:cs:melt:ableC:abstractsyntax:host;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
-imports edu:umn:cs:melt:ableC:abstractsyntax:construction:parsing;
-imports edu:umn:cs:melt:ableC:abstractsyntax:substitution;
 imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 imports edu:umn:cs:melt:ableC:abstractsyntax:overloadable as ovrld;
 --imports edu:umn:cs:melt:ableC:abstractsyntax:debug;
@@ -16,39 +14,39 @@ global builtin::Location = builtinLoc("closure");
 abstract production lambdaExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::Expr
 {
-  propagate substituted;
   top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   forwards to
     lambdaTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, 
-      closureTypeExpr, nullStmt(), nullStmt(),
+      closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
 
 abstract production lambdaStmtExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::TypeName body::Stmt
 {
-  propagate substituted;
-  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
   
   forwards to
     lambdaStmtTransExpr(
       fromMaybeAllocator(allocator),
       captured, params, res, body,
-      closureTypeExpr, nullStmt(), nullStmt(),
+      closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
 
 abstract production lambdaTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::Expr closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::Expr
+  closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
-  propagate substituted;
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   local localErrors::[Message] = res.errors;
-  res.env = openScopeEnv(addEnv(params.defs, params.env));
+  params.env = openScopeEnv(top.env);
+  params.position = 0;
+  res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
   res.returnType = just(res.typerep);
   
   local fwrd::Expr =
@@ -56,41 +54,53 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       allocator, captured, params,
       typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
       case res.typerep of
-        builtinType(_, voidType()) -> exprStmt(res)
-      | _ -> returnStmt(justExpr(res))
+      | builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
+      | _ -> returnStmt(justExpr(decExpr(res, location=builtin)))
       end,
-      closureTypeExpr, extraInit1, extraInit2,
+      closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
       location=top.location);
   
   forwards to mkErrorCheck(localErrors, fwrd);
 }
 
 abstract production lambdaStmtTransExpr
-top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::TypeName body::Stmt closureTypeExpr::(BaseTypeExpr ::= Qualifiers Parameters TypeName) extraInit1::Stmt extraInit2::Stmt
+top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::Parameters res::TypeName body::Stmt
+  closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
-  propagate substituted;
-  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp}) ${braces(nestlines(2, body.pp))}";
+  top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
   
   local localErrors::[Message] =
     checkMemcpyErrors(top.location, top.env) ++
     captured.errors ++ params.errors ++ res.errors ++ body.errors;
   
   local paramNames::[Name] =
-    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.defs))));
+    map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
   captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
-  captured.globalEnv = addEnv(params.defs ++ res.defs, globalEnv(top.env));
   
-  res.env = top.env;
   res.returnType = nothing();
-  params.env = addEnv(res.defs, res.env);
-  body.env = openScopeEnv(addEnv(params.defs, params.env));
+  params.env = openScopeEnv(addEnv(res.defs, res.env));
+  params.position = 0;
+  body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(params.env));
   body.returnType = just(res.typerep);
+  captured.env =
+    addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
+  captured.currentFunctionNameIn =
+    case lookupMisc("this_func", top.env) of
+    | currentFunctionItem(n, _) :: _ -> n.name
+    | _ -> ""
+    end;
   
+  production closureTypeStructName::String = closureStructName(params.typereps, res.typerep);
   production id::String = toString(genInt()); 
   production envStructName::String = s"_lambda_env_${id}_s";
   production funName::String = s"_lambda_fn_${id}";
   
   captured.structNameIn = envStructName;
+  
+  local closureTypeStructDcl::Decl =
+    closureStructDecl(
+      argTypesToParameters(params.typereps),
+      typeName(directTypeExpr(res.typerep), baseTypeExpr()));
   
   local envStructDcl::Decl =
     typeExprDecl(
@@ -104,58 +114,35 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
           location=builtin)));
   
   local funDcl::Decl =
-    substDecl(
-      [typedefSubstitution("__res_type__", typeModifierTypeExpr(res.bty, res.mty)),
-       parametersSubstitution("__params__", params),
-       stmtSubstitution("__env_copy__", captured.envCopyOutTrans),
-       stmtSubstitution("__body__", body)],
-      decls(
-        parseDecls(s"""
-proto_typedef __res_type__, __params__;
-static __res_type__ ${funName}(void *_env_ptr, __params__) {
-  struct ${envStructName} _env = *(struct ${envStructName}*)_env_ptr;
-  __env_copy__;
-  __body__;
-}
-""")));
+    ableC_Decl {
+      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{params}) {
+        struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
+        $Stmt{captured.envCopyOutTrans}
+        $Stmt{decStmt(body)}
+      }
+    };
   
-  local globalDecls::Decls = foldDecl([envStructDcl, funDcl]);
+  local globalDecls::Decls = foldDecl([closureTypeStructDcl, envStructDcl, funDcl]);
   
   local fwrd::Expr =
-    substExpr(
-      [initializerSubstitution(
-         "__env_init__",
-         objectInitializer(
-           captured.envInitTrans)),
-       stmtSubstitution("__extra_init_1__", extraInit1),
-       declRefSubstitution(
-         "__allocator__",
-         allocator(parseExpr(s"sizeof(struct ${envStructName})"), top.location)),
-       typedefSubstitution(
-         "__closure_type__",
-         closureTypeExpr(
-           nilQualifier(),
-           argTypesToParameters(params.typereps),
-           typeName(directTypeExpr(res.typerep), baseTypeExpr()))),
-       stmtSubstitution("__extra_init_2__", extraInit2)],
-      parseExpr(s"""
-({proto_typedef __closure_type__;
-  struct ${envStructName} _env = __env_init__;
-  
-  __extra_init_1__;
-  
-  struct ${envStructName} *_env_ptr = __allocator__;
-  memcpy(_env_ptr, &_env, sizeof(struct ${envStructName}));
-  
-  __closure_type__ _result;
-  _result._fn_name = "${funName}";
-  _result._env = (void*)_env_ptr;
-  _result._fn = ${funName};
-  
-  __extra_init_2__;
-  
-  _result;})
-"""));
+    ableC_Expr {
+      ({struct $name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans)};
+        
+        $Stmt{extraInit1};
+        
+        struct $name{envStructName} *_env_ptr =
+          $Expr{allocator(ableC_Expr {sizeof(struct $name{envStructName})}, top.location)};
+        memcpy(_env_ptr, &_env, sizeof(struct $name{envStructName}));
+        
+        struct $name{closureTypeStructName} _result;
+        _result.fn_name = $stringLiteralExpr{funName};
+        _result.env = (void*)_env_ptr;
+        _result.fn = $name{funName};
+        
+        $Stmt{extraInit2};
+        
+        ($directTypeExpr{extType(nilQualifier(), closureType(params.typereps, res.typerep))})_result;})
+    };
   
   forwards to
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
@@ -206,11 +193,11 @@ synthesized attribute envStructTrans::StructItemList;
 synthesized attribute envInitTrans::InitList; -- Initializer body for _env using vars
 synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
-autocopy attribute globalEnv::Decorated Env;
 autocopy attribute structNameIn::String;
 autocopy attribute freeVariablesIn::[Name];
+autocopy attribute currentFunctionNameIn::String;
 
-nonterminal CaptureList with env, globalEnv, structNameIn, freeVariablesIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
+nonterminal CaptureList with env, structNameIn, freeVariablesIn, currentFunctionNameIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
 
 abstract production freeVariablesCaptureList
 top::CaptureList ::=
@@ -239,16 +226,21 @@ top::CaptureList ::= n::Name rest::CaptureList
         pointerType(nilQualifier(), noncanonicalType(parenType(functionType(res, sub, q))))
     | t -> t
     end;
+  varType.inArrayType = false;
   
   -- If true, then this variable is in scope for the lifted function and doesn't need to be captured
-  production isGlobal::Boolean = !null(lookupValue(n.name, top.globalEnv));
+  production isGlobal::Boolean =
+    !null(lookupValue(n.name, top.env)) &&
+    null(lookupValue(n.name, nonGlobalEnv(top.env)))
+    -- The current top-level function still needs to be captured
+    && n.name != top.currentFunctionNameIn;
   
   top.envStructTrans =
     if isGlobal then rest.envStructTrans else
       consStructItem(
         structItem(
           nilAttribute(),
-          directTypeExpr(varType),
+          directTypeExpr(varType.variableArrayConversion),
           consStructDeclarator(
             structField(n, baseTypeExpr(), nilAttribute()),
             nilStructDeclarator())),
@@ -262,25 +254,10 @@ top::CaptureList ::= n::Name rest::CaptureList
   
   top.envCopyOutTrans =
     if isGlobal then rest.envCopyOutTrans else
-      seqStmt(
-        declStmt(
-          variableDecls(
-            [], nilAttribute(),
-            directTypeExpr(addQualifiers([constQualifier(location=builtin)], varType)),
-            consDeclarator(
-              declarator(
-                n,
-                baseTypeExpr(),
-                nilAttribute(),
-                justInitializer(
-                  exprInitializer(
-                    memberExpr(
-                      declRefExpr(name("_env", location=builtin), location=builtin),
-                      false,
-                      n,
-                      location=builtin)))),
-              nilDeclarator()))),
-        rest.envCopyOutTrans);
+      ableC_Stmt {
+        const $directTypeExpr{varType.withoutTypeQualifiers} $Name{n} = _env.$Name{n};
+        $Stmt{rest.envCopyOutTrans}
+      };
   
   rest.freeVariablesIn = removeBy(nameEq, n, top.freeVariablesIn);
 }
@@ -294,4 +271,96 @@ top::CaptureList ::=
   top.envStructTrans = nilStructItem();
   top.envInitTrans = nilInit();
   top.envCopyOutTrans = nullStmt();
+}
+
+-- Convert VLAs to incomplete/constant-length arrays within the struct definition
+-- where the VLA size arguments aren't visible.
+autocopy attribute inArrayType::Boolean occurs on Type, ArrayType;
+synthesized attribute variableArrayConversion<a>::a;
+attribute variableArrayConversion<Type> occurs on Type;
+attribute variableArrayConversion<ArrayType> occurs on ArrayType;
+attribute variableArrayConversion<FunctionType> occurs on FunctionType;
+
+aspect default production
+top::Type ::=
+{
+  top.variableArrayConversion = top;
+}
+
+aspect production pointerType
+top::Type ::= q::Qualifiers  target::Type
+{
+  propagate variableArrayConversion;
+  target.inArrayType = false;
+}
+
+aspect production arrayType
+top::Type ::= element::Type  indexQualifiers::Qualifiers  sizeModifier::ArraySizeModifier  sub::ArrayType
+{
+  propagate variableArrayConversion;
+  element.inArrayType = true;
+}
+
+aspect production constantArrayType
+top::ArrayType ::= size::Integer
+{
+  propagate variableArrayConversion;
+}
+
+aspect production incompleteArrayType
+top::ArrayType ::=
+{
+  propagate variableArrayConversion;
+}
+
+aspect production variableArrayType
+top::ArrayType ::= size::Decorated Expr
+{
+  top.variableArrayConversion =
+    if !top.inArrayType then incompleteArrayType() else constantArrayType(1);
+}
+
+aspect production functionType
+top::Type ::= result::Type  sub::FunctionType  q::Qualifiers
+{
+  propagate variableArrayConversion;
+  result.inArrayType = false;
+}
+
+aspect production protoFunctionType
+top::FunctionType ::= args::[Type]  variadic::Boolean
+{
+  top.variableArrayConversion =
+    protoFunctionType(map(doVariableArrayConversion, args), variadic);
+}
+
+aspect production noProtoFunctionType
+top::FunctionType ::=
+{
+  propagate variableArrayConversion;
+}
+
+aspect production atomicType
+top::Type ::= q::Qualifiers  bt::Type
+{
+  propagate variableArrayConversion;
+}
+
+aspect production attributedType
+top::Type ::= attrs::Attributes  bt::Type
+{
+  propagate variableArrayConversion;
+}
+
+aspect production vectorType
+top::Type ::= bt::Type  bytes::Integer
+{
+  propagate variableArrayConversion;
+}
+
+function doVariableArrayConversion
+Type ::= t::Type
+{
+  t.inArrayType = false;
+  return t.variableArrayConversion;
 }

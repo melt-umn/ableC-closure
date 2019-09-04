@@ -10,7 +10,7 @@ int main() {
   
   int *total_addr = &total;
 
-  closure<(int) -> int> fn = lambda (int x) -> (int) {
+  closure<(int) -> int> fn = lambda (int x) -> int {
     inc(x);
     return *total_addr;
   };

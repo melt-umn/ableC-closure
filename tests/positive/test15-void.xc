@@ -9,7 +9,7 @@ void foo(int i) {
 }
 
 int main() {
-  closure<(int) -> void> bar = lambda (int i) -> (foo(i));
+  closure<(int) -> void> bar = lambda (int i) -> foo(i);
 
   printf("x: %d\n", x);
   bar(1);
