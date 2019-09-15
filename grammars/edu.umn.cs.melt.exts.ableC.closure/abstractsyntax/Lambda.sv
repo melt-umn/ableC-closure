@@ -54,7 +54,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
       allocator, captured, params,
       typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
       case res.typerep of
-        builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
+      | builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
       | _ -> returnStmt(justExpr(decExpr(res, location=builtin)))
       end,
       closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
