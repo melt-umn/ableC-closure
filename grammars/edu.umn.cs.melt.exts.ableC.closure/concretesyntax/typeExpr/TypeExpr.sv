@@ -10,7 +10,7 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 
 import edu:umn:cs:melt:exts:ableC:closure;
 
-marking terminal Closure_t 'closure' lexer classes {Ctype, Ckeyword};
+marking terminal Closure_t 'closure' lexer classes {Type, ScopedReserved};
 
 concrete productions top::TypeSpecifier_c
 | 'closure' '<' te::ClosureTypeExpr_c '>'
