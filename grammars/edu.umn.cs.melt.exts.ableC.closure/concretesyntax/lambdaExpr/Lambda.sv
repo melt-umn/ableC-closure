@@ -10,7 +10,7 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 
 import edu:umn:cs:melt:exts:ableC:closure;
 
-marking terminal Lambda_t 'lambda' lexer classes {Keyword, ScopedReserved};
+marking terminal Lambda_t 'lambda' lexer classes {Keyword, Global};
 
 terminal Allocate_t 'allocate';
 
