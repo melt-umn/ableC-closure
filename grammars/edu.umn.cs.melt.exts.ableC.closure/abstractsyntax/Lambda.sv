@@ -278,10 +278,7 @@ top::CaptureList ::=
 -- Convert VLAs to incomplete/constant-length arrays within the struct definition
 -- where the VLA size arguments aren't visible.
 autocopy attribute inArrayType::Boolean occurs on Type, ArrayType;
-synthesized attribute variableArrayConversion<a>::a;
-attribute variableArrayConversion<Type> occurs on Type;
-attribute variableArrayConversion<ArrayType> occurs on ArrayType;
-attribute variableArrayConversion<FunctionType> occurs on FunctionType;
+functor attribute variableArrayConversion occurs on Type, ArrayType, FunctionType;
 
 aspect default production
 top::Type ::=
