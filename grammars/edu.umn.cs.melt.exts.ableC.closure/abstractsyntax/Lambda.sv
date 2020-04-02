@@ -43,16 +43,18 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
 {
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
-  local localErrors::[Message] = res.errors;
+  local localErrors::[Message] = params.errors ++ res.errors;
   params.env = openScopeEnv(top.env);
   params.position = 0;
   res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
   res.returnType = just(res.typerep);
   
+  local resType::Type = res.typerep.withoutTypeQualifiers;
   local fwrd::Expr =
     lambdaStmtTransExpr(
-      allocator, captured, params,
-      typeName(directTypeExpr(res.typerep.withoutTypeQualifiers), baseTypeExpr()),
+      allocator, captured,
+      decParameters(params),
+      typeName(resType.baseTypeExpr, resType.typeModifierExpr),
       case res.typerep of
       | builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
       | _ -> returnStmt(justExpr(decExpr(res, location=builtin)))
@@ -115,7 +117,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local funDcl::Decl =
     ableC_Decl {
-      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{params}) {
+      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{decParameters(params)}) {
         struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
         $Stmt{captured.envCopyOutTrans}
         $Stmt{decStmt(body)}
