@@ -3,7 +3,6 @@ grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 abstract production callMemberClosure
 top::Expr ::= lhs::Expr deref::Boolean rhs::Name a::Exprs
 {
-  
   forwards to
     case rhs.name, a of
       "free", consExpr(deallocate, nilExpr()) -> freeExpr(lhs, deallocate, location=top.location)
