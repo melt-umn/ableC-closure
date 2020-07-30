@@ -223,7 +223,7 @@ top::CaptureList ::= n::Name rest::CaptureList
   -- Strip qualifiers and convert arrays and functions to pointers
   production varType::Type =
     case n.valueItem.typerep of
-      arrayType(elem, _, _, _) -> pointerType(nilQualifier(), elem)
+    | arrayType(elem, _, _, _) -> pointerType(nilQualifier(), elem)
     | functionType(res, sub, q) ->
         pointerType(nilQualifier(), noncanonicalType(parenType(functionType(res, sub, q))))
     | t -> t
@@ -257,7 +257,7 @@ top::CaptureList ::= n::Name rest::CaptureList
   top.envCopyOutTrans =
     if isGlobal then rest.envCopyOutTrans else
       ableC_Stmt {
-        const $directTypeExpr{varType.withoutTypeQualifiers} $Name{n} = _env.$Name{n};
+        const $directTypeExpr{varType.defaultFunctionArrayLvalueConversion.withoutTypeQualifiers} $Name{n} = _env.$Name{n};
         $Stmt{rest.envCopyOutTrans}
       };
   
