@@ -128,7 +128,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local fwrd::Expr =
     ableC_Expr {
-      ({struct $name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans)};
+      ({struct $name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans, location=builtin)};
         
         $Stmt{extraInit1};
         
@@ -251,7 +251,7 @@ top::CaptureList ::= n::Name rest::CaptureList
   top.envInitTrans =
     if isGlobal then rest.envInitTrans else
       consInit(
-        positionalInit(exprInitializer(declRefExpr(n, location=builtin))),
+        positionalInit(exprInitializer(declRefExpr(n, location=builtin), location=builtin)),
         rest.envInitTrans);
   
   top.envCopyOutTrans =
