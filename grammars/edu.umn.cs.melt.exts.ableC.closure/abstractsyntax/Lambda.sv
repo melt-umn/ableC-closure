@@ -150,21 +150,23 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
 }
 
-function fromMaybeAllocator
-(Expr ::= Expr Location) ::= allocator::Decorated MaybeExpr
-{
-  local expectedType::Type =
+global expectedAllocatorType::Type =
+  pointerType(
+    nilQualifier(),
     functionType(
       pointerType(
         nilQualifier(),
         builtinType(nilQualifier(), voidType())),
       protoFunctionType([builtinType(nilQualifier(), unsignedType(longType()))], false),
-      nilQualifier());
-  
+      nilQualifier()));
+
+function fromMaybeAllocator
+(Expr ::= Expr Location) ::= allocator::Decorated MaybeExpr
+{
   return
     case allocator of
       justExpr(e) ->
-        if compatibleTypes(expectedType, e.typerep, true, false)
+        if typeAssignableTo(expectedAllocatorType, e.typerep)
         then \ size::Expr loc::Location -> callExpr(e, consExpr(size, nilExpr()), location=loc)
         else
           \ size::Expr loc::Location ->
