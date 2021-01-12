@@ -77,7 +77,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
-  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
+  captured.freeVariablesIn = removeAll(paramNames, nub(body.freeVariables));
   
   res.returnType = nothing();
   params.env = openScopeEnv(addEnv(res.defs, res.env));
@@ -207,7 +207,7 @@ abstract production freeVariablesCaptureList
 top::CaptureList ::=
 {
   top.pp = pp"...";
-  forwards to foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
+  forwards to foldr(consCaptureList, nilCaptureList(), nub(top.freeVariablesIn));
 }
 
 abstract production consCaptureList
@@ -263,7 +263,7 @@ top::CaptureList ::= n::Name rest::CaptureList
         $Stmt{rest.envCopyOutTrans}
       };
   
-  rest.freeVariablesIn = removeBy(nameEq, n, top.freeVariablesIn);
+  rest.freeVariablesIn = remove(n, top.freeVariablesIn);
 }
 
 abstract production nilCaptureList

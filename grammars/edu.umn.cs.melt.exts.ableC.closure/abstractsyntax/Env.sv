@@ -18,7 +18,7 @@ Decorated Env ::= env::Decorated Env
 function flattenScope
 [String] ::= s::Scopes<a>
 {
-  return nubBy(stringEq, map(fst, flatMap(tm:toList, s)));
+  return nub(map(fst, flatMap(tm:toList, s)));
 }
 
 -- Wrap a ValueItem, making it const
