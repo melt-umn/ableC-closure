@@ -39,6 +39,8 @@ top::Expr ::= fn::Expr args::Exprs
   initialDecls.env = addEnv(args.defs, args.env);
   initialDecls.isTopLevel = false;
   initialDecls.returnType = nothing();
+  initialDecls.breakValid = false;
+  initialDecls.continueValid = false;
   local fwrd::Expr =
     ableC_Expr {
       ({$Decl{decDecl(initialDecls)}
