@@ -47,7 +47,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   params.env = openScopeEnv(top.env);
   params.position = 0;
   res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
-  res.returnType = just(res.typerep);
+  res.controlStmtContext = controlStmtContext(just(res.typerep), false, false);
   
   local resType::Type = res.typerep.withoutTypeQualifiers;
   local fwrd::Expr =
@@ -79,11 +79,11 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
   captured.freeVariablesIn = removeAll(paramNames, nub(body.freeVariables));
   
-  res.returnType = nothing();
+  res.controlStmtContext = initialControlStmtContext;
   params.env = openScopeEnv(addEnv(res.defs, res.env));
   params.position = 0;
   body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(params.env));
-  body.returnType = just(res.typerep);
+  body.controlStmtContext = controlStmtContext(just(res.typerep), false, false);
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
   captured.currentFunctionNameIn =
