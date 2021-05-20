@@ -7,6 +7,7 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:host;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 imports edu:umn:cs:melt:ableC:abstractsyntax:overloadable as ovrld;
+imports silver:util:treemap as tm;
 --imports edu:umn:cs:melt:ableC:abstractsyntax:debug;
 
 global builtin::Location = builtinLoc("closure");
@@ -47,7 +48,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   params.env = openScopeEnv(top.env);
   params.position = 0;
   res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
-  res.controlStmtContext = controlStmtContext(just(res.typerep), false, false);
+  res.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:empty());
   
   local resType::Type = res.typerep.withoutTypeQualifiers;
   local fwrd::Expr =
@@ -83,7 +84,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   params.env = openScopeEnv(addEnv(res.defs, res.env));
   params.position = 0;
   body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(params.env));
-  body.controlStmtContext = controlStmtContext(just(res.typerep), false, false);
+  body.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:add(body.labelDefs, tm:empty()));
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
   captured.currentFunctionNameIn =
