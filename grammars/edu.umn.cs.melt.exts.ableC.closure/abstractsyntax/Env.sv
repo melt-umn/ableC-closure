@@ -1,6 +1,6 @@
 grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 
-import silver:util:raw:treemap as tm;
+import silver:util:treemap as tm;
 
 -- Construct an environment in which all non-global values have been made const
 function capturedEnv
@@ -18,7 +18,7 @@ Decorated Env ::= env::Decorated Env
 function flattenScope
 [String] ::= s::Scopes<a>
 {
-  return nubBy(stringEq, map(fst, flatMap(tm:toList, s)));
+  return nub(map(fst, flatMap(tm:toList, s)));
 }
 
 -- Wrap a ValueItem, making it const
