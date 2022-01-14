@@ -21,7 +21,7 @@ top::Expr ::= fn::Expr args::Exprs
   args.expectedTypes = paramTypes;
   
   local structName::String = closureStructName(paramTypes, resultType);
-  local tmpName::String = "_tmp_closure_" ++ toString(genInt());
+  local tmpName::String = "_tmp_closure_" ++ toString(genIntT());
   -- Workaround to ensure fn and args get the proper environment if they declare the struct
   local initialDecls::Decl =
     decls(
