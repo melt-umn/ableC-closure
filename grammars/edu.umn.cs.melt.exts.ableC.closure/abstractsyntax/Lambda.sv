@@ -94,7 +94,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     end;
   
   production closureTypeStructName::String = closureStructName(params.typereps, res.typerep);
-  production id::String = toString(genIntT()); 
+  production id::String = toString(genInt()); 
   production envStructName::String = s"_lambda_env_${id}_s";
   production funName::String = s"_lambda_fn_${id}";
   
