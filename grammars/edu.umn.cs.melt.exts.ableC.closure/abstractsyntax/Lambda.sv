@@ -7,6 +7,7 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:host;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports edu:umn:cs:melt:ableC:abstractsyntax:env;
 imports edu:umn:cs:melt:ableC:abstractsyntax:overloadable as ovrld;
+imports silver:util:treemap as tm;
 --imports edu:umn:cs:melt:ableC:abstractsyntax:debug;
 
 global builtin::Location = builtinLoc("closure");
@@ -47,7 +48,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   params.env = openScopeEnv(top.env);
   params.position = 0;
   res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
-  res.returnType = just(res.typerep);
+  res.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:empty());
   
   local resType::Type = res.typerep.withoutTypeQualifiers;
   local fwrd::Expr =
@@ -77,13 +78,13 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local paramNames::[Name] =
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
-  captured.freeVariablesIn = removeAllBy(nameEq, paramNames, nubBy(nameEq, body.freeVariables));
+  captured.freeVariablesIn = removeAll(paramNames, nub(body.freeVariables));
   
-  res.returnType = nothing();
+  res.controlStmtContext = initialControlStmtContext;
   params.env = openScopeEnv(addEnv(res.defs, res.env));
   params.position = 0;
   body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(params.env));
-  body.returnType = just(res.typerep);
+  body.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:add(body.labelDefs, tm:empty()));
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
   captured.currentFunctionNameIn =
@@ -128,7 +129,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local fwrd::Expr =
     ableC_Expr {
-      ({struct $name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans)};
+      ({struct $name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans, location=builtin)};
         
         $Stmt{extraInit1};
         
@@ -150,21 +151,23 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
 }
 
-function fromMaybeAllocator
-(Expr ::= Expr Location) ::= allocator::Decorated MaybeExpr
-{
-  local expectedType::Type =
+global expectedAllocatorType::Type =
+  pointerType(
+    nilQualifier(),
     functionType(
       pointerType(
         nilQualifier(),
         builtinType(nilQualifier(), voidType())),
       protoFunctionType([builtinType(nilQualifier(), unsignedType(longType()))], false),
-      nilQualifier());
-  
+      nilQualifier()));
+
+function fromMaybeAllocator
+(Expr ::= Expr Location) ::= allocator::Decorated MaybeExpr
+{
   return
     case allocator of
       justExpr(e) ->
-        if compatibleTypes(expectedType, e.typerep, true, false)
+        if typeAssignableTo(expectedAllocatorType, e.typerep)
         then \ size::Expr loc::Location -> callExpr(e, consExpr(size, nilExpr()), location=loc)
         else
           \ size::Expr loc::Location ->
@@ -205,7 +208,7 @@ abstract production freeVariablesCaptureList
 top::CaptureList ::=
 {
   top.pp = pp"...";
-  forwards to foldr(consCaptureList, nilCaptureList(), nubBy(nameEq, top.freeVariablesIn));
+  forwards to foldr(consCaptureList, nilCaptureList(), nub(top.freeVariablesIn));
 }
 
 abstract production consCaptureList
@@ -251,7 +254,7 @@ top::CaptureList ::= n::Name rest::CaptureList
   top.envInitTrans =
     if isGlobal then rest.envInitTrans else
       consInit(
-        positionalInit(exprInitializer(declRefExpr(n, location=builtin))),
+        positionalInit(exprInitializer(declRefExpr(n, location=builtin), location=builtin)),
         rest.envInitTrans);
   
   top.envCopyOutTrans =
@@ -261,7 +264,7 @@ top::CaptureList ::= n::Name rest::CaptureList
         $Stmt{rest.envCopyOutTrans}
       };
   
-  rest.freeVariablesIn = removeBy(nameEq, n, top.freeVariablesIn);
+  rest.freeVariablesIn = remove(n, top.freeVariablesIn);
 }
 
 abstract production nilCaptureList

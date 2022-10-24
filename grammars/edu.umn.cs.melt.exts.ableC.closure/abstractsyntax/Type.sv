@@ -75,7 +75,7 @@ top::ExtType ::= params::[Type] res::Type
   top.host =
     if isErrorType
     then errorType()
-    else extType(top.givenQualifiers, refIdExtType(structSEU(), structName, structRefId));
+    else extType(top.givenQualifiers, refIdExtType(structSEU(), just(structName), structRefId));
   top.mangledName = s"_closure_${implode("_", map((.mangledName), params))}_${res.mangledName}";
   top.isEqualTo =
     \ other::ExtType ->
