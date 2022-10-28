@@ -15,6 +15,7 @@ abstract production freeExpr
 top::Expr ::= fn::Expr deallocate::Expr
 {
   top.pp = pp"${fn.pp}.free(${deallocate.pp})";
+  propagate env, controlStmtContext;
   
   local deallocateExpectedType::Type =
     functionType(

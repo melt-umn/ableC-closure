@@ -16,6 +16,7 @@ abstract production lambdaExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::Expr
 {
   top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
+  propagate env, controlStmtContext;
   
   forwards to
     lambdaTransExpr(
@@ -29,6 +30,7 @@ abstract production lambdaStmtExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::TypeName body::Stmt
 {
   top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
+  propagate env, controlStmtContext;
   
   forwards to
     lambdaStmtTransExpr(
@@ -46,6 +48,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   local localErrors::[Message] = params.errors ++ res.errors;
   params.env = openScopeEnv(top.env);
+  params.controlStmtContext = initialControlStmtContext;
   params.position = 0;
   res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
   res.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:empty());
@@ -80,10 +83,12 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
   captured.freeVariablesIn = removeAll(paramNames, nub(body.freeVariables));
   
-  res.controlStmtContext = initialControlStmtContext;
   params.env = openScopeEnv(addEnv(res.defs, res.env));
+  params.controlStmtContext = initialControlStmtContext;
   params.position = 0;
-  body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(params.env));
+  res.env = addEnv(params.defs, params.env);
+  res.controlStmtContext = initialControlStmtContext;
+  body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(res.env));
   body.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:add(body.labelDefs, tm:empty()));
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
@@ -198,11 +203,13 @@ synthesized attribute envStructTrans::StructItemList;
 synthesized attribute envInitTrans::InitList; -- Initializer body for _env using vars
 synthesized attribute envCopyOutTrans::Stmt; -- Copys _env out to vars
 
-autocopy attribute structNameIn::String;
-autocopy attribute freeVariablesIn::[Name];
-autocopy attribute currentFunctionNameIn::String;
+inherited attribute structNameIn::String;
+inherited attribute freeVariablesIn::[Name];
+inherited attribute currentFunctionNameIn::String;
 
 nonterminal CaptureList with env, structNameIn, freeVariablesIn, currentFunctionNameIn, pp, errors, envStructTrans, envInitTrans, envCopyOutTrans;
+
+propagate env, structNameIn, currentFunctionNameIn, errors on CaptureList;
 
 abstract production freeVariablesCaptureList
 top::CaptureList ::=
@@ -216,7 +223,6 @@ top::CaptureList ::= n::Name rest::CaptureList
 {
   top.pp = pp"${n.pp}, ${rest.pp}";
   
-  top.errors := rest.errors;
   top.errors <- n.valueLookupCheck;
   top.errors <-
     if n.valueItem.isItemValue
@@ -271,7 +277,6 @@ abstract production nilCaptureList
 top::CaptureList ::=
 {
   top.pp = pp"";
-  top.errors := [];
   
   top.envStructTrans = nilStructItem();
   top.envInitTrans = nilInit();
@@ -280,8 +285,10 @@ top::CaptureList ::=
 
 -- Convert VLAs to incomplete/constant-length arrays within the struct definition
 -- where the VLA size arguments aren't visible.
-autocopy attribute inArrayType::Boolean occurs on Type, ArrayType;
+inherited attribute inArrayType::Boolean occurs on Type, ArrayType;
 functor attribute variableArrayConversion occurs on Type, ArrayType, FunctionType;
+
+propagate inArrayType on Type, ArrayType excluding pointerType, arrayType, functionType;
 
 aspect default production
 top::Type ::=
@@ -301,6 +308,7 @@ top::Type ::= element::Type  indexQualifiers::Qualifiers  sizeModifier::ArraySiz
 {
   propagate variableArrayConversion;
   element.inArrayType = true;
+  sub.inArrayType = top.inArrayType;
 }
 
 aspect production constantArrayType
