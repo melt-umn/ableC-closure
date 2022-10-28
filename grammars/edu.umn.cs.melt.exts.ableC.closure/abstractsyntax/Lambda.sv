@@ -83,11 +83,11 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
     map(name(_, location=builtin), map(fst, foldr(append, [], map((.valueContribs), params.functionDefs))));
   captured.freeVariablesIn = removeAll(paramNames, nub(body.freeVariables));
   
+  res.env = top.env;
+  res.controlStmtContext = initialControlStmtContext;
   params.env = openScopeEnv(addEnv(res.defs, res.env));
   params.controlStmtContext = initialControlStmtContext;
   params.position = 0;
-  res.env = addEnv(params.defs, params.env);
-  res.controlStmtContext = initialControlStmtContext;
   body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(res.env));
   body.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:add(body.labelDefs, tm:empty()));
   captured.env =
