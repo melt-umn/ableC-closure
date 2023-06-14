@@ -52,15 +52,13 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   params.env = openScopeEnv(top.env);  -- Equation needed to avoid circularity
   
   local resType::Type = res.typerep.withoutTypeQualifiers;
-  local fwrd::Expr =
+  forward fwrd::Expr =
     lambdaStmtTransExpr(
       allocator, @captured, @params,
       typeName(resType.baseTypeExpr, resType.typeModifierExpr),
       returnIfNotVoid(@res),
       closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
       location=top.location);
-  fwrd.env = top.env;
-  fwrd.controlStmtContext = top.controlStmtContext;
   
   forwards to if null(localErrors) then @fwrd else errorExpr(localErrors, location=top.location);
 }
@@ -155,10 +153,8 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
         ($directTypeExpr{extType(nilQualifier(), closureType(params.typereps, res.typerep))})_result;})
     };
 
-  local fwrd::Expr = injectGlobalDeclsExpr(@globalDecls, @resExpr, location=top.location);
-  fwrd.env = top.env;
-  fwrd.controlStmtContext = top.controlStmtContext;
-  
+  forward fwrd::Expr = injectGlobalDeclsExpr(@globalDecls, @resExpr, location=top.location);
+
   forwards to if null(localErrors) then @fwrd else errorExpr(localErrors, location=top.location);
 }
 
