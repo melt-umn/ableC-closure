@@ -94,6 +94,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   res.controlStmtContext = initialControlStmtContext;
   params.env = openScopeEnv(capturedEnv(res.env));
   body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, openScopeEnv(params.env));
+  body.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:fromList(body.labelDefs));
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
   captured.currentFunctionNameIn =
