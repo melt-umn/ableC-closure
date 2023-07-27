@@ -92,7 +92,7 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   res.env = top.env;
   res.controlStmtContext = initialControlStmtContext;
-  params.env = capturedEnv(res.env);
+  params.env = openScopeEnv(capturedEnv(res.env));
   body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, openScopeEnv(params.env));
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
