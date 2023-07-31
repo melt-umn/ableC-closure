@@ -9,7 +9,7 @@ top::Expr ::= fn::Expr args::Exprs
   local localErrors :: [Message] =
     (if isClosureType(fn.typerep)
      then args.argumentErrors
-     else [err(fn.location, s"Cannot apply non-closure (got ${showType(fn.typerep)})")]) ++
+     else [errFromOrigin(fn, s"Cannot apply non-closure (got ${showType(fn.typerep)})")]) ++
     fn.errors ++ args.errors;
   
   local paramTypes::[Type] = closureParamTypes(fn.typerep);
@@ -36,7 +36,7 @@ top::Expr ::= fn::Expr args::Exprs
                 typeName(directTypeExpr(resultType), baseTypeExpr())),
             nilDecl()))}
         struct $name{structName} $name{tmpName} =
-          (struct $name{structName})$Expr{decExpr(fn, location=fn.location)};
+          (struct $name{structName})$Expr{decExpr(fn)};
       });
   initialDecls.env = addEnv(args.defs, args.env);
   initialDecls.isTopLevel = false;

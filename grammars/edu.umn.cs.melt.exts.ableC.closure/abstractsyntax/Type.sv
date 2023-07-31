@@ -89,8 +89,8 @@ top::ExtType ::= params::[Type] res::Type
       | _ -> false
       end;
   
-  top.callProd = just(applyExpr(_, _, location=_));
-  top.callMemberProd = just(callMemberClosure(_, _, _, _, location=_));
+  top.callProd = just(applyExpr);
+  top.callMemberProd = just(callMemberClosure);
 }
 
 function closureStructName

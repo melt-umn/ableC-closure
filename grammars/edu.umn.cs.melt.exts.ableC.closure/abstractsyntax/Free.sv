@@ -5,9 +5,9 @@ top::Expr ::= lhs::Expr deref::Boolean rhs::Name a::Exprs
 {
   forwards to
     case rhs.name, a of
-      "free", consExpr(deallocate, nilExpr()) -> freeExpr(lhs, deallocate, location=top.location)
-    | "free", _ -> errorExpr([err(rhs.location, "Closure free expected exactly 1 parameter")], location=top.location)
-    | n, _ -> errorExpr([err(rhs.location, s"Closure does not have field ${n}")], location=top.location)
+      "free", consExpr(deallocate, nilExpr()) -> freeExpr(lhs, deallocate)
+    | "free", _ -> errorExpr([errFromOrigin(rhs, "Closure free expected exactly 1 parameter")])
+    | n, _ -> errorExpr([errFromOrigin(rhs, s"Closure does not have field ${n}")])
     end;
 }
 
@@ -26,7 +26,7 @@ top::Expr ::= fn::Expr deallocate::Expr
       nilQualifier());
   local localErrors :: [Message] =
     if compatibleTypes(deallocateExpectedType, deallocate.typerep, true, false) then []
-    else [err(deallocate.location, s"Deallocator must have type void(void*) (got ${showType(deallocate.typerep)})")] ++
+    else [errFromOrigin(deallocate, s"Deallocator must have type void(void*) (got ${showType(deallocate.typerep)})")] ++
     fn.errors ++ deallocate.errors;
   
   local paramTypes::[Type] = closureParamTypes(fn.typerep);
@@ -39,8 +39,7 @@ top::Expr ::= fn::Expr deallocate::Expr
           argTypesToParameters(paramTypes),
           typeName(directTypeExpr(resultType), baseTypeExpr())),
         nilDecl()),
-      ableC_Expr { $Expr{deallocate}(((struct $name{structName})$Expr{fn}).env) },
-      location=builtin);
+      ableC_Expr { $Expr{deallocate}(((struct $name{structName})$Expr{fn}).env) });
   
   forwards to mkErrorCheck(localErrors, fwrd);
 }

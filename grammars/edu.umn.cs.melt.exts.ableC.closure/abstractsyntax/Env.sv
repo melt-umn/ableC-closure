@@ -26,7 +26,6 @@ abstract production captureValueItem
 top::ValueItem ::= captured::ValueItem
 {
   top.pp = pp"captured ${captured.pp}";
-  top.typerep = addQualifiers([constQualifier(location=builtin)], captured.typerep.defaultFunctionArrayLvalueConversion);
-  top.sourceLocation = captured.sourceLocation;
+  top.typerep = addQualifiers([constQualifier()], captured.typerep.defaultFunctionArrayLvalueConversion);
   top.isItemValue = captured.isItemValue;
 }
