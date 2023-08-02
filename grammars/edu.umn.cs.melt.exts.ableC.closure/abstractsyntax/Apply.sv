@@ -4,6 +4,7 @@ abstract production applyExpr
 top::Expr ::= fn::Expr args::Exprs
 {
   top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
+  attachNote extensionGenerated("ableC-closure");
   propagate controlStmtContext;
   
   local localErrors :: [Message] =

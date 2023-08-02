@@ -76,6 +76,7 @@ top::Expr ::= allocator::(Expr ::= Expr) captured::CaptureList params::Parameter
   closureType::(ExtType ::= [Type] Type) closureStructDecl::(Decl ::= Parameters TypeName) closureStructName::(String ::= [Type] Type) extraInit1::Stmt extraInit2::Stmt
 {
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
+  attachNote extensionGenerated("ableC-closure");
   
   local localErrors::[Message] =
     checkMemcpyErrors(top.env) ++
@@ -219,12 +220,16 @@ abstract production consCaptureList
 top::CaptureList ::= n::Name rest::CaptureList
 {
   top.pp = pp"${n.pp}, ${rest.pp}";
+  attachNote extensionGenerated("ableC-closure");
   
   top.errors <- n.valueLookupCheck;
   top.errors <-
     if n.valueItem.isItemValue
     then []
     else [errFromOrigin(n, "'" ++ n.name ++ "' does not refer to a value.")];
+  top.errors <-
+    if varType.isCompleteType(globalEnv(top.env)) then []
+    else [errFromOrigin(n, "'" ++ n.name ++ "' does not have a globally-defined type.")];
   
   -- Strip qualifiers and convert arrays and functions to pointers
   production varType::Type =
