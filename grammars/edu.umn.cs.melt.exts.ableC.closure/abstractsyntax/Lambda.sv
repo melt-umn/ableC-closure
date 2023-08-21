@@ -66,7 +66,9 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
 abstract production returnIfNotVoid
 top::Stmt ::= e::Expr
 {
+  top.pp = pp"returnIfNotVoid ${e.pp};";
   top.functionDefs := [];
+  top.labelDefs := [];
   e.env = top.env;
   e.controlStmtContext = top.controlStmtContext;
   forwards to 
