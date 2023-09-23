@@ -15,8 +15,10 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
 {
   top.pp = pp"${terminate(space(), q.pps)}closure<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>";
+  propagate controlStmtContext;
   
   params.position = 0;
+  params.env = top.env;
   res.env = addEnv(params.defs, top.env);
   
   local localErrors::[Message] = params.errors ++ res.errors;
@@ -33,6 +35,7 @@ top::Decl ::= params::Parameters res::TypeName
 {
   top.pp = pp"closureStructDecl<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
+  propagate env, controlStmtContext;
   
   params.position = 0;
   

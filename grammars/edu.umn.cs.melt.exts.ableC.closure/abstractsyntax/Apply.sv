@@ -4,6 +4,7 @@ abstract production applyExpr
 top::Expr ::= fn::Expr args::Exprs
 {
   top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
+  propagate controlStmtContext;
   
   local localErrors :: [Message] =
     (if isClosureType(fn.typerep)
@@ -14,6 +15,7 @@ top::Expr ::= fn::Expr args::Exprs
   local paramTypes::[Type] = closureParamTypes(fn.typerep);
   local resultType::Type = closureResultType(fn.typerep);
   
+  fn.env = top.env;
   args.env = addEnv(fn.defs, fn.env);
   args.argumentPosition = 1;
   args.callExpr = fn;
