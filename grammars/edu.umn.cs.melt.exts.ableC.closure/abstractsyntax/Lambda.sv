@@ -16,12 +16,13 @@ abstract production lambdaExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::Expr
 {
   top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
-  propagate env, controlStmtContext;
-  
+  allocator.env = top.env;
+  allocator.controlStmtContext = top.controlStmtContext;
+
   forwards to
     lambdaTransExpr(
       fromMaybeAllocator(allocator),
-      captured, params, res, 
+      @captured, @params, @res, 
       closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
@@ -30,12 +31,13 @@ abstract production lambdaStmtExpr
 top::Expr ::= allocator::MaybeExpr captured::CaptureList params::Parameters res::TypeName body::Stmt
 {
   top.pp = pp"lambda ${case allocator of justExpr(e) -> pp"allocate(${e.pp}) " | _ -> pp"" end}[${captured.pp}](${ppImplode(text(", "), params.pps)}) -> ${res.pp} ${braces(nestlines(2, body.pp))}";
-  propagate env, controlStmtContext;
+  allocator.env = top.env;
+  allocator.controlStmtContext = top.controlStmtContext;
   
   forwards to
     lambdaStmtTransExpr(
       fromMaybeAllocator(allocator),
-      captured, params, res, body,
+      @captured, @params, @res, @body,
       closureType, closureStructDecl, closureStructName, nullStmt(), nullStmt(),
       location=top.location);
 }
@@ -47,26 +49,33 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   top.pp = pp"trans lambda [${captured.pp}](${ppImplode(text(", "), params.pps)}) -> (${res.pp})";
   
   local localErrors::[Message] = params.errors ++ res.errors;
-  params.env = openScopeEnv(top.env);
-  params.controlStmtContext = initialControlStmtContext;
-  params.position = 0;
-  res.env = addEnv(params.defs ++ params.functionDefs, capturedEnv(params.env));
-  res.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:empty());
+  params.env = openScopeEnv(top.env);  -- Equation needed to avoid circularity
   
   local resType::Type = res.typerep.withoutTypeQualifiers;
-  local fwrd::Expr =
+  forward fwrd =
     lambdaStmtTransExpr(
-      allocator, captured,
-      decParameters(params),
+      allocator, @captured, @params,
       typeName(resType.baseTypeExpr, resType.typeModifierExpr),
-      case res.typerep of
-      | builtinType(_, voidType()) -> exprStmt(decExpr(res, location=builtin))
-      | _ -> returnStmt(justExpr(decExpr(res, location=builtin)))
-      end,
+      returnIfNotVoid(@res),
       closureType, closureStructDecl, closureStructName, extraInit1, extraInit2,
       location=top.location);
   
-  forwards to mkErrorCheck(localErrors, fwrd);
+  forwards to if null(localErrors) then @fwrd else errorExpr(localErrors, location=top.location);
+}
+
+abstract production returnIfNotVoid
+top::Stmt ::= e::Expr
+{
+  top.pp = pp"returnIfNotVoid ${e.pp};";
+  top.functionDefs := [];
+  top.labelDefs := [];
+  e.env = top.env;
+  e.controlStmtContext = top.controlStmtContext;
+  forwards to 
+    case e.typerep of
+    | builtinType(_, voidType()) -> exprStmt(@e)
+    | _ -> returnStmt(justExpr(@e))
+    end;
 }
 
 abstract production lambdaStmtTransExpr
@@ -85,11 +94,9 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   res.env = top.env;
   res.controlStmtContext = initialControlStmtContext;
-  params.env = openScopeEnv(addEnv(res.defs, res.env));
-  params.controlStmtContext = initialControlStmtContext;
-  params.position = 0;
-  body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, capturedEnv(res.env));
-  body.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:add(body.labelDefs, tm:empty()));
+  params.env = openScopeEnv(capturedEnv(res.env));
+  body.env = addEnv(params.defs ++ params.functionDefs ++ body.functionDefs, openScopeEnv(params.env));
+  body.controlStmtContext = controlStmtContext(just(res.typerep), false, false, tm:fromList(body.labelDefs));
   captured.env =
     addEnv(globalDeclsDefs(params.globalDecls ++ res.globalDecls ++ body.globalDecls), top.env);
   captured.currentFunctionNameIn =
@@ -105,38 +112,36 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
   
   captured.structNameIn = envStructName;
   
-  local closureTypeStructDcl::Decl =
-    closureStructDecl(
-      argTypesToParameters(params.typereps),
-      typeName(directTypeExpr(res.typerep), baseTypeExpr()));
-  
-  local envStructDcl::Decl =
-    typeExprDecl(
-      nilAttribute(),
-      structTypeExpr(
-        nilQualifier(),
-        structDecl(
+  local globalDecls::Decls =
+    ableC_Decls {
+      $Decl{
+        closureStructDecl(
+          argTypesToParameters(params.typereps),
+          typeName(directTypeExpr(res.typerep), baseTypeExpr()))}
+
+      $Decl{
+        typeExprDecl(
           nilAttribute(),
-          justName(name(envStructName, location=builtin)),
-          captured.envStructTrans,
-          location=builtin)));
-  
-  local funDcl::Decl =
-    ableC_Decl {
-      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{decParameters(params)}) {
+          structTypeExpr(
+            nilQualifier(),
+            structDecl(
+              nilAttribute(),
+              justName(name(envStructName, location=builtin)),
+              captured.envStructTrans,
+              location=builtin)))}
+
+      static $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} $name{funName}(void *_env_ptr, $Parameters{@params}) {
         struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
         $Stmt{captured.envCopyOutTrans}
-        $Stmt{decStmt(body)}
+        $Stmt{@body}
       }
     };
   
-  local globalDecls::Decls = foldDecl([closureTypeStructDcl, envStructDcl, funDcl]);
-  
-  local fwrd::Expr =
+  local resExpr::Expr =
     ableC_Expr {
       ({struct $name{envStructName} _env = $Initializer{objectInitializer(captured.envInitTrans, location=builtin)};
         
-        $Stmt{extraInit1};
+        $Stmt{@extraInit1};
         
         struct $name{envStructName} *_env_ptr =
           $Expr{allocator(ableC_Expr {sizeof(struct $name{envStructName})}, top.location)};
@@ -147,13 +152,14 @@ top::Expr ::= allocator::(Expr ::= Expr Location) captured::CaptureList params::
         _result.env = (void*)_env_ptr;
         _result.fn = $name{funName};
         
-        $Stmt{extraInit2};
+        $Stmt{@extraInit2};
         
         ($directTypeExpr{extType(nilQualifier(), closureType(params.typereps, res.typerep))})_result;})
     };
-  
-  forwards to
-    mkErrorCheck(localErrors, injectGlobalDeclsExpr(globalDecls, fwrd, location=top.location));
+
+  forward fwrd = injectGlobalDeclsExpr(@globalDecls, @resExpr, location=top.location);
+
+  forwards to if null(localErrors) then @fwrd else errorExpr(localErrors, location=top.location);
 }
 
 global expectedAllocatorType::Type =
