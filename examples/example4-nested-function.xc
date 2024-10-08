@@ -1,6 +1,7 @@
 #include <gc.h>
 #include <string.h>
-#include <stdbool.h>
+
+allocate_using gc;
 
 int main() {
   closure<(int) -> int> fn() {

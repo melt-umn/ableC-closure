@@ -1,6 +1,3 @@
-#include <string.h>
-#include <gc.h>
-
 struct foo {
   int x;
 };

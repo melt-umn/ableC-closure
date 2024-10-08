@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+allocate_using gc;
+
 int f(int a) {
   return a + 1;
 }

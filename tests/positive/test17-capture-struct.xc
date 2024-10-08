@@ -1,6 +1,8 @@
 #include <string.h>
-#include <gc.h>
+#include <alloca.h>
 #include <stdio.h>
+
+allocate_using stack;
 
 struct data {
   int arr[5];

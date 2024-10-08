@@ -1,6 +1,8 @@
-#include <gc.h>
+#include <alloca.h>
 #include <string.h>
 #include <stdio.h>
+
+allocate_using stack;
 
 int main() {
   int total = 0;

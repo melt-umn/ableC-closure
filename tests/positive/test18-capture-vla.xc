@@ -1,6 +1,8 @@
 #include <string.h>
-#include <gc.h>
+#include <alloca.h>
 #include <stdio.h>
+
+allocate_using stack;
 
 int main() {
   int x = 3, y = 4, z = 5;

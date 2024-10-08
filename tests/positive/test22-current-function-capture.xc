@@ -1,5 +1,7 @@
 #include <string.h>
-#include <gc.h>
+#include <alloca.h>
+
+allocate_using stack;
 
 int foo() {
   lambda (int x) -> (foo());

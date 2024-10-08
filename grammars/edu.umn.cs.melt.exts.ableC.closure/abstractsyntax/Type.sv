@@ -1,7 +1,5 @@
 grammar edu:umn:cs:melt:exts:ableC:closure:abstractsyntax;
 
-import edu:umn:cs:melt:ableC:abstractsyntax:overloadable;
-
 {-
  - closureTypeExpr translates to a global struct declaration (if needed) and a reference to this
  - struct.  closureType, when transformed back into a BaseTypeExpr, is simply a reference to this
@@ -16,19 +14,14 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
   top.pp = pp"${terminate(space(), q.pps)}closure<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>";
   attachNote extensionGenerated("ableC-closure");
-  propagate controlStmtContext;
-  
-  params.position = 0;
-  params.env = top.env;
-  res.env = addEnv(params.defs, top.env);
   
   local localErrors::[Message] = params.errors ++ res.errors;
-  local fwrd::BaseTypeExpr =
+  forward fwrd =
     injectGlobalDeclsTypeExpr(
-      consDecl(closureStructDecl(params, res), nilDecl()),
-      extTypeExpr(q, closureType(params.typereps, res.typerep)));
+      consDecl(closureStructDecl(@params, @res), nilDecl()),
+      extTypeExpr(@q, closureType(params.typereps, res.typerep)));
   
-  forwards to if !null(localErrors) then errorTypeExpr(localErrors) else fwrd;
+  forwards to if !null(localErrors) then errorTypeExpr(localErrors) else @fwrd;
 }
 
 abstract production closureStructDecl
@@ -37,7 +30,8 @@ top::Decl ::= params::Parameters res::TypeName
   top.pp = pp"closureStructDecl<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
   attachNote extensionGenerated("ableC-closure");
-  propagate env, controlStmtContext;
+  res.env = top.env;
+  res.controlStmtContext = top.controlStmtContext;
   
   params.position = 0;
   
@@ -54,7 +48,7 @@ top::Decl ::= params::Parameters res::TypeName
           // Implementation function pointer
           // First param is above env struct pointer
           // Remaining params are params of the closure
-          $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*fn)(void *env, $Parameters{params});
+          $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*fn)(void *env, $Parameters{@params});
          };
       });
 }
@@ -72,10 +66,10 @@ top::ExtType ::= params::[Type] res::Type
           map((.lpp), params),
           map((.rpp), params)))}) -> ${res.lpp}${res.rpp}>";
   
-  local structName::String = closureStructName(params, res);
+  local structName::String = closureStructName(params, ^res);
   local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
   local isErrorType::Boolean =
-    any(map(\ t::Type -> case t of errorType() -> true | _ -> false end, res :: params));
+    any(map(\ t::Type -> case t of errorType() -> true | _ -> false end, ^res :: params));
   
   top.host =
     if isErrorType
@@ -87,18 +81,18 @@ top::ExtType ::= params::[Type] res::Type
       case other of
         closureType(otherParams, otherRes) ->
           length(params) == length(otherParams) &&
-          all(zipWith(compatibleTypes(_, _, false, false), res :: params, otherRes :: otherParams))
+          all(zipWith(compatibleTypes(_, _, false, false), ^res :: params, ^otherRes :: otherParams))
       | _ -> false
       end;
   
   top.callProd = just(applyExpr);
-  top.callMemberProd = just(callMemberClosure);
+  top.memberCallProd = just(callMemberClosure);
 }
 
 function closureStructName
 String ::= params::[Type] res::Type
 {
-  return closureType(params, res).mangledName ++ "_s";
+  return closureType(params, ^res).mangledName ++ "_s";
 }
 
 -- Check if a type is a closure
@@ -129,7 +123,7 @@ Type ::= t::Type
 {
   return
     case t of
-      extType(_, closureType(_, resType)) -> resType
+      extType(_, closureType(_, resType)) -> ^resType
     | _ -> errorType()
     end;
 }

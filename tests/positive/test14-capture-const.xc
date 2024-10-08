@@ -1,5 +1,7 @@
-#include <gc.h>
+#include <alloca.h>
 #include <string.h>
+
+allocate_using stack;
 
 int main (int argc, char **argv) {
   const int x = 42;

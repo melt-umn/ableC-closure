@@ -1,5 +1,3 @@
-#include <string.h>
-#include <gc.h>
 #include <stdio.h>
 
 int x = 0;

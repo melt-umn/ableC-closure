@@ -1,6 +1,8 @@
 #include <gc.h>
 #include <string.h>
 
+allocate_using gc;
+
 int main() {
   closure<(int) -> int> fn() {
     closure<(int) -> int> fn1() {

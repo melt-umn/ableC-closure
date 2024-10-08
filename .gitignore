@@ -3,11 +3,13 @@
 *~
 
 # Silver-related files
-build.xml
+build*.xml
 *.copperdump.html
 *.jar
+generated/
 
 # Other files
+depends.mk
 examples/*.c
 tests/**/*.c
 *.i

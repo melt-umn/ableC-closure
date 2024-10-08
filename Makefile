@@ -24,38 +24,12 @@
 #       e.g. `make -B analyses`, `make -B mwda`, etc.
 #
 
+EXT_NAME=ableC-closure
+EXT_GRAMMAR=edu:umn:cs:melt:exts:ableC:closure
+EXT_DEPS=ableC-allocation
+USE_CUSTOM_SILVER=true
+
 # Path from current directory to top level ableC repository
 ABLEC_BASE?=../../ableC
-# Path from current directory to top level extensions directory
-EXTS_BASE?=../../extensions
 
-MAKEOVERRIDES=ABLEC_BASE=$(abspath $(ABLEC_BASE)) EXTS_BASE=$(abspath $(EXTS_BASE))
-
-all: examples analyses test
-
-build:
-	$(MAKE) -C examples ableC.jar
-
-examples:
-	$(MAKE) -C examples
-
-analyses:
-	$(MAKE) -C modular_analyses
-
-mda:
-	$(MAKE) -C modular_analyses mda
-
-mwda:
-	$(MAKE) -C modular_analyses mwda
-
-test:
-	$(MAKE) -C tests -k
-
-clean:
-	rm -f *~ 
-	$(MAKE) -C examples clean
-	$(MAKE) -C modular_analyses clean
-	$(MAKE) -C tests clean
-
-.PHONY: all build examples analyses mda mwda test clean
-.NOTPARALLEL: # Avoid running multiple Silver builds in parallel
+include $(ABLEC_BASE)/extension.mk
