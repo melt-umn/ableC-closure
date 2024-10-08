@@ -10,6 +10,7 @@ imports silver:util:treemap as tm;
 --imports edu:umn:cs:melt:ableC:abstractsyntax:debug;
 
 imports edu:umn:cs:melt:exts:ableC:allocation:abstractsyntax;
+imports edu:umn:cs:melt:exts:ableC:constructor:abstractsyntax;
 
 abstract production lambdaExpr
 top::Expr ::= captured::CaptureList params::Parameters res::Expr

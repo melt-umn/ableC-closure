@@ -20,7 +20,7 @@ int main (int argc, char **argv) {
 
   printf("%d %d %d\n", a, b, c);
 
-  fun.free(free);
+  delete fun;
   
   if (a != 2)
     return 1;

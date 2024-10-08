@@ -10,7 +10,7 @@ where x, y, and z are ints in the environment.  If the captured variable list is
 ```
 closure<(int) -> int> fn = lambda (int a) -> (x + y + z + a);
 ``` 
-If a statment-expression is used in the body, direct return statments are possible, as long as they have the same type as the expression result.  Alternatively, the body of a lambda can be a statment (note that the return type must be given explicitly):
+If a statement-expression is used in the body, direct return statements are possible, as long as they have the same type as the expression result.  Alternatively, the body of a lambda can be a statement (note that the return type must be given explicitly):
 ```
 closure<(int) -> int> fn = lambda (int a) -> (int) {
   if (x != y)
@@ -32,11 +32,12 @@ int res = fn(1, 2, 3);
 
 Functions and arrays can be captured by a closure, but they are decayed into function pointers or pointers to the base type, as with lvalues in C.  Since capture works by copying data, all captured variables are const.  If some form of mutation is required, then a pointer to that variable should be captured.  
 
-The saved environment requires memory to be allocated.  By default this is done using the Boehm GC library, to avoid needing to manually free a closure when it is no longer needed.  Alternatively, special syntax may be used to specify different `malloc`/`free`-like functions to use for allocation and deallocation:
+The saved environment requires memory to be allocated.  This is done using the allocator specified using the ableC-allocation extension.  When using an allocator that requires explicit deallocation, this can be done using the `delete` syntax supplied by the ableC-constructor extension.
 ```
-closure<(int) -> int> fn = lambda allocate(malloc) (int a) -> (x + y + z + a);
+allocate_using heap;
+closure<(int) -> int> fn = lambda(int a) -> (x + y + z + a);
 ...
-fn.free(free);
+delete fn;
 ```
 
 The purpose of this extension is

@@ -83,7 +83,7 @@ top::ExtType ::= params::[Type] res::Type
       end;
   
   top.callProd = just(applyExpr);
-  top.memberCallProd = just(callMemberClosure);
+  top.deleteProd = just(freeClosure);
 }
 
 function closureStructName

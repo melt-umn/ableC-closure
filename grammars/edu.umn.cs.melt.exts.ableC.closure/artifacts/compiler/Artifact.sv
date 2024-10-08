@@ -15,6 +15,7 @@ parser extendedParser :: cst:Root {
   edu:umn:cs:melt:ableC:concretesyntax;
   edu:umn:cs:melt:exts:ableC:closure;
   edu:umn:cs:melt:exts:ableC:allocation;
+  edu:umn:cs:melt:exts:ableC:constructor;
 } 
 
 fun main IO<Integer> ::= args::[String] = driver(args, extendedParser);
