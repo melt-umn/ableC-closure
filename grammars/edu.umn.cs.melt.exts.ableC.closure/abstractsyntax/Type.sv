@@ -30,10 +30,7 @@ top::Decl ::= params::Parameters res::TypeName
   top.pp = pp"closureStructDecl<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
   attachNote extensionGenerated("ableC-closure");
-  res.env = top.env;
-  res.controlStmtContext = top.controlStmtContext;
-  
-  params.position = 0;
+  res.env = top.env;  -- Avoid circularity, absence of the tag def shouldn't affect anything
   
   local structName::String = closureStructName(params.typereps, res.typerep);
   local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
@@ -48,7 +45,7 @@ top::Decl ::= params::Parameters res::TypeName
           // Implementation function pointer
           // First param is above env struct pointer
           // Remaining params are params of the closure
-          $BaseTypeExpr{typeModifierTypeExpr(res.bty, res.mty)} (*fn)(void *env, $Parameters{@params});
+          $BaseTypeExpr{typeNameTypeExpr(@res)} (*fn)(void *env, $Parameters{@params});
          };
       });
 }
