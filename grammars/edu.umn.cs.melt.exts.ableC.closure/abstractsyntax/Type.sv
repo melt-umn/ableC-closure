@@ -15,6 +15,7 @@ top::BaseTypeExpr ::= q::Qualifiers params::Parameters res::TypeName
 {
   top.pp = pp"${terminate(space(), q.pps)}closure<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>";
+  attachNote extensionGenerated("ableC-closure");
   propagate controlStmtContext;
   
   params.position = 0;
@@ -35,6 +36,7 @@ top::Decl ::= params::Parameters res::TypeName
 {
   top.pp = pp"closureStructDecl<(${
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
+  attachNote extensionGenerated("ableC-closure");
   propagate env, controlStmtContext;
   
   params.position = 0;
@@ -89,8 +91,8 @@ top::ExtType ::= params::[Type] res::Type
       | _ -> false
       end;
   
-  top.callProd = just(applyExpr(_, _, location=_));
-  top.callMemberProd = just(callMemberClosure(_, _, _, _, location=_));
+  top.callProd = just(applyExpr);
+  top.callMemberProd = just(callMemberClosure);
 }
 
 function closureStructName

@@ -18,7 +18,7 @@ concrete productions top::TypeSpecifier_c
       top.preTypeSpecifiers = [];
       te.givenQualifiers = top.givenQualifiers; }
 
-nonterminal ClosureTypeExpr_c with ast<BaseTypeExpr>, givenQualifiers;
+tracked nonterminal ClosureTypeExpr_c with ast<BaseTypeExpr>, givenQualifiers;
 
 concrete productions top::ClosureTypeExpr_c
 | '(' param::ClosureTypeExpr_c ')' '->' ret::TypeName_c
@@ -40,7 +40,7 @@ concrete productions top::ClosureTypeExpr_c
     { top.ast = closureTypeExpr(top.givenQualifiers, nilParameters(), ret.ast); }
 
 -- Duplicate of ParameterList_c so MDA doesn't complain
-closed nonterminal ClosureParameterList_c with location, declaredIdents, ast<[ParameterDecl]>;
+closed tracked nonterminal ClosureParameterList_c with declaredIdents, ast<[ParameterDecl]>;
 concrete productions top::ClosureParameterList_c
 | h::ParameterDeclaration_c 
     { top.declaredIdents = h.declaredIdents;

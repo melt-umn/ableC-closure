@@ -18,19 +18,19 @@ terminal Allocate_t 'allocate';
 -- still be used as a function argument
 concrete productions top::AssignExpr_c
 | 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' DisallowSEUDecl_t res::AssignExpr_c AllowSEUDecl_t
-    { top.ast = lambdaExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, location=top.location); }
+    { top.ast = lambdaExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast); }
 | 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' DisallowSEUDecl_t res::AssignExpr_c AllowSEUDecl_t
-    { top.ast = lambdaExpr(allocator.ast, captured.ast, nilParameters(), res.ast, location=top.location); }
+    { top.ast = lambdaExpr(allocator.ast, captured.ast, nilParameters(), res.ast); }
 | 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' body::BlockItemList_c '}'
-    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, foldStmt(body.ast), location=top.location); }
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, foldStmt(body.ast)); }
 | 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' body::BlockItemList_c '}'
-    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, foldStmt(body.ast), location=top.location); }
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, foldStmt(body.ast)); }
 | 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' params::ParameterList_c ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' '}'
-    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, nullStmt(), location=top.location); }
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, foldParameterDecl(params.ast), res.ast, nullStmt()); }
 | 'lambda' allocator::MaybeAllocator_c captured::MaybeCaptureList_c '(' ')' '->' DisallowSEUDecl_t res::TypeName_c AllowSEUDecl_t '{' '}'
-    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, nullStmt(), location=top.location); }
+    { top.ast = lambdaStmtExpr(allocator.ast, captured.ast, nilParameters(), res.ast, nullStmt()); }
 
-nonterminal MaybeAllocator_c with ast<MaybeExpr>, location;
+tracked nonterminal MaybeAllocator_c with ast<MaybeExpr>;
 
 concrete productions top::MaybeAllocator_c
 | 'allocate' '(' e::Expr_c ')'
@@ -38,7 +38,7 @@ concrete productions top::MaybeAllocator_c
 | 
     { top.ast = nothingExpr(); }
 
-nonterminal MaybeCaptureList_c with ast<CaptureList>;
+tracked nonterminal MaybeCaptureList_c with ast<CaptureList>;
 
 concrete productions top::MaybeCaptureList_c
 | '[' cl::CaptureList_c ']'
@@ -46,7 +46,7 @@ concrete productions top::MaybeCaptureList_c
 | 
     { top.ast = freeVariablesCaptureList(); }
 
-nonterminal CaptureList_c with ast<CaptureList>;
+tracked nonterminal CaptureList_c with ast<CaptureList>;
 
 concrete productions top::CaptureList_c
 | id::Identifier_c ',' rest::CaptureList_c

@@ -4,12 +4,13 @@ abstract production applyExpr
 top::Expr ::= fn::Expr args::Exprs
 {
   top.pp = parens(ppConcat([fn.pp, parens(ppImplode(cat(comma(), space()), args.pps))]));
+  attachNote extensionGenerated("ableC-closure");
   propagate controlStmtContext;
   
   local localErrors :: [Message] =
     (if isClosureType(fn.typerep)
      then args.argumentErrors
-     else [err(fn.location, s"Cannot apply non-closure (got ${showType(fn.typerep)})")]) ++
+     else [errFromOrigin(fn, s"Cannot apply non-closure (got ${showType(fn.typerep)})")]) ++
     fn.errors ++ args.errors;
   
   local paramTypes::[Type] = closureParamTypes(fn.typerep);
@@ -36,7 +37,7 @@ top::Expr ::= fn::Expr args::Exprs
                 typeName(directTypeExpr(resultType), baseTypeExpr())),
             nilDecl()))}
         struct $name{structName} $name{tmpName} =
-          (struct $name{structName})$Expr{decExpr(fn, location=fn.location)};
+          (struct $name{structName})$Expr{decExpr(fn)};
       });
   initialDecls.env = addEnv(args.defs, args.env);
   initialDecls.isTopLevel = false;
