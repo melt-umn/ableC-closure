@@ -31,6 +31,7 @@ top::Decl ::= params::Parameters res::TypeName
     if null(params.pps) then pp"void" else ppImplode(pp", ", params.pps)}) -> ${res.pp}>;";
   attachNote extensionGenerated("ableC-closure");
   res.env = top.env;  -- Avoid circularity, absence of the tag def shouldn't affect anything
+  params.env = addEnv(res.defs, res.env);
   
   local structName::String = closureStructName(params.typereps, res.typerep);
   local structRefId::String = s"edu:umn:cs:melt:exts:ableC:closure:${structName}";
