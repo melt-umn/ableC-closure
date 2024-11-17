@@ -5,6 +5,7 @@ import silver:util:treemap as tm;
 -- Construct an environment in which all non-global values have been made const
 fun capturedEnv Env ::= env::Env =
   addEnv(
+    allocContextDef(head(env.allocContext)) ::
     map(
       \ n::String -> valueDef(n, captureValueItem(head(lookupValue(n, env)))),
       flattenScope(init(env.values))),
