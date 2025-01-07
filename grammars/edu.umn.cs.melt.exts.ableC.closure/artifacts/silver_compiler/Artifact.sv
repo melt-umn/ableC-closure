@@ -8,7 +8,7 @@ import edu:umn:cs:melt:ableC:concretesyntax as cst;
 import edu:umn:cs:melt:ableC:drivers:compile;
 import silver:compiler:host;
 
-parser svParse::Root {
+parser svParse::File {
   silver:compiler:host;
   edu:umn:cs:melt:ableC:silverconstruction;
   edu:umn:cs:melt:ableC:concretesyntax;
