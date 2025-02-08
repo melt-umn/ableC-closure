@@ -100,12 +100,7 @@ top::Expr ::= captured::CaptureList params::Parameters res::TypeName body::Stmt
               captured.envStructTrans)))}
 
       static $directTypeExpr{res.typerep} $name{funName}(void *_env_ptr, $Parameters{@transParams}) {
-        $Stmt{
-          if captured.isEmpty then nullStmt() else ableC_Stmt {
-            struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
-            $Stmt{captured.envCopyOutTrans}
-          }
-        }
+        $Stmt{envCopyOutStmt(envStructName, captured)}
         $Stmt{@body}
       }
     };
@@ -132,6 +127,20 @@ top::Expr ::= captured::CaptureList params::Parameters res::TypeName body::Stmt
   forward fwrd = injectGlobalDeclsExpr(@globalDecls, @resExpr);
 
   forwards to if null(localErrors) then @fwrd else errorExpr(localErrors);
+}
+
+production envCopyOutStmt
+top::Stmt ::= envStructName::String captured::Decorated CaptureList
+{
+  top.pp = pp"envCopyOutStmt ${captured.pp};";
+  top.functionDefs := [];
+  top.labelDefs := [];
+  forwards to
+    if captured.isEmpty then nullStmt()
+    else ableC_Stmt {
+      struct $name{envStructName} _env = *(struct $name{envStructName}*)_env_ptr;
+      $Stmt{captured.envCopyOutTrans}
+    };
 }
 
 fun checkMemcpyErrors [Message] ::= env::Env =
