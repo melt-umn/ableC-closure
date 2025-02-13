@@ -133,6 +133,8 @@ production envCopyOutStmt
 top::Stmt ::= envStructName::String captured::Decorated CaptureList
 {
   top.pp = pp"envCopyOutStmt ${captured.pp};";
+  attachNote extensionGenerated("ableC-closure");
+
   top.functionDefs := [];
   top.labelDefs := [];
   forwards to
