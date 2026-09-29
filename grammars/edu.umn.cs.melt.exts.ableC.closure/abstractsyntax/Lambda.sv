@@ -191,7 +191,6 @@ top::CaptureList ::= n::Name rest::CaptureList
         pointerType(nilQualifier(), noncanonicalType(parenType(functionType(^res, ^sub, ^q))))
     | t -> t
     end;
-  varType.inArrayType = false;
   
   -- If true, then this variable is in scope for the lifted function and doesn't need to be captured
   production isGlobal::Boolean =
